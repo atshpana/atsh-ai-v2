@@ -118,3 +118,13 @@
 - CI for the updated workflow containing the isolated PostgreSQL 16 migration-deploy/status test has not been independently confirmed in this continuation. The previously verified run `41132485355` predates that workflow change and does not prove the ephemeral PostgreSQL test passed.
 - Gap-analysis document commit: `1d96299ca68f9910f26c93b9ad34fba3f370f517`; status-record commit: `170b9e33d0a1844f4f4a432c3a3276344d312fb4`.
 - The first durable migration remains blocked pending model completion, resolution of review findings, a successful isolated PostgreSQL test, and owner approval. No persistent database was provisioned and no migration was applied.
+
+
+## Baseline gate correction — 30 October 2026
+
+- The follow-up CI run `41132838966` for commit `3c42f840407b298f9b9f49919bedc54024c96141` completed successfully. Its generated preview was checked: 10 enum types, 24 tables, 19 unique indexes, 23 non-unique indexes and 30 foreign keys; no DROP statements and no npm banner.
+- That run also successfully applied the generated draft to a disposable PostgreSQL 16 CI service and verified migration status. This is evidence of SQL executability for the current draft only; it is **not** owner approval, production readiness, scope completeness or permission to create a durable baseline.
+- The existing static review `docs/data/PRISMA_BASELINE_SQL_REVIEW.md` explicitly says not to commit this SQL as `0_init` or apply it. Its unresolved items include database CHECK constraints, the pricing approver reference decision, temporal/lifecycle invariants, transactional quote/customer authorization enforcement, and missing approved product domains (domains, projects, contracts, invoices, hosted services, workflow plans/tasks, AI agents, support, finance, content and notifications).
+- Accordingly, no migration SQL or migration lock was committed. CI was corrected in commit `94188fb6b3d79c9345351059aa7bf04ed5beda52` to generate and upload the SQL as a temporary review artifact only. It no longer provisions PostgreSQL or applies the incomplete draft. The preview is written under the runner temporary directory, not the Prisma migrations folder.
+- **Current state:** Prisma schema validation/generation, typecheck, build and unit tests remain CI checks. The database baseline remains **Designed / under review**, not approved or applied. No persistent database exists or is connected.
+- Next: reconcile the complete approved screen/flow requirements and domain specifications into the logical data model; resolve the static review findings; regenerate and review a new preview. Only after that, run a disposable empty-PostgreSQL migration test and seek explicit baseline approval before committing a first migration.
