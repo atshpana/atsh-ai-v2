@@ -62,6 +62,18 @@ enum QuoteStatus {
   SUPERSEDED
 }
 
+enum QuoteDecisionType {
+  ACCEPT
+  DECLINE
+}
+
+enum QuoteChangeRequestStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  WITHDRAWN
+}
+
 enum AuditActorType {
   USER
   SYSTEM
@@ -82,7 +94,8 @@ model User {
   auditEvents              AuditEvent[]      @relation("AuditActor")
   requestEvents            RequestEvent[]    @relation("RequestEventActor")
   createdQuotes            Quote[]           @relation("QuoteCreator")
-  quoteAcceptances         QuoteAcceptance[] @relation("QuoteAccepter")
+  quoteDecisions           QuoteDecision[]   @relation("QuoteDecisionActor")
+  quoteChangeRequests      QuoteChangeRequest[] @relation("QuoteChangeRequester")
 
   @@map("users")
 }
@@ -386,7 +399,8 @@ model Quote {
   request     ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   createdBy   User?          @relation("QuoteCreator", fields: [createdById], references: [id], onDelete: SetNull)
   items       QuoteItem[]
-  acceptance  QuoteAcceptance?
+  decision    QuoteDecision?
+  changeRequests QuoteChangeRequest[]
 
   @@unique([requestId, version])
   @@index([status, validUntil])
@@ -406,17 +420,38 @@ model QuoteItem {
   @@map("quote_items")
 }
 
-model QuoteAcceptance {
-  id               String    @id @default(uuid()) @db.Uuid
-  quoteId          String    @unique @map("quote_id") @db.Uuid
-  acceptedByUserId String?   @map("accepted_by_user_id") @db.Uuid
-  acceptedVersion  Int       @map("accepted_version")
-  acceptedAt       DateTime  @default(now()) @map("accepted_at") @db.Timestamptz(6)
-  evidence         Json?     @db.JsonB
-  quote            Quote     @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  acceptedBy       User?     @relation("QuoteAccepter", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+model QuoteDecision {
+  id              String             @id @default(uuid()) @db.Uuid
+  quoteId         String             @unique @map("quote_id") @db.Uuid
+  actorUserId     String             @map("actor_user_id") @db.Uuid
+  expectedVersion Int                @map("expected_version")
+  decision        QuoteDecisionType
+  idempotencyKey  String             @unique @map("idempotency_key") @db.VarChar(160)
+  comment         String?            @db.VarChar(2000)
+  decidedAt       DateTime           @default(now()) @map("decided_at") @db.Timestamptz(6)
+  quote           Quote              @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  actor           User               @relation("QuoteDecisionActor", fields: [actorUserId], references: [id], onDelete: Restrict)
 
-  @@map("quote_acceptances")
+  @@index([actorUserId, decidedAt])
+  @@map("quote_decisions")
+}
+
+model QuoteChangeRequest {
+  id              String                   @id @default(uuid()) @db.Uuid
+  quoteId         String                   @map("quote_id") @db.Uuid
+  requesterUserId String                   @map("requester_user_id") @db.Uuid
+  expectedVersion Int                      @map("expected_version")
+  idempotencyKey  String                   @unique @map("idempotency_key") @db.VarChar(160)
+  message         String                   @db.VarChar(4000)
+  status          QuoteChangeRequestStatus @default(OPEN)
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  quote           Quote                    @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  requester       User                     @relation("QuoteChangeRequester", fields: [requesterUserId], references: [id], onDelete: Restrict)
+
+  @@index([quoteId, createdAt])
+  @@index([status, createdAt])
+  @@map("quote_change_requests")
 }
 
 model AuditEvent {
