@@ -202,12 +202,13 @@ export default function HomePage() {
           <p>{t.solutionsIntro}</p>
         </div>
         <div className="service-grid">
-          {t.services.map((service) => <article className="service-card" key={service.n}>
+          {t.services.map((service, index) => <a className="service-card" key={service.n} href={"/" + locale + "/services/" + ["websites-platforms", "ecommerce", "mobile-applications", "custom-systems", "ai-solutions", "automation"][index]}>
             <div className="service-card-top"><span>{service.n}</span><span className="service-tag">{service.tag}</span></div>
             <div className="service-symbol" aria-hidden="true">{["⌘", "◈", "▧", "⌗", "✳", "⇄"][Number(service.n) - 1]}</div>
             <h3>{service.title}</h3><p>{service.text}</p><span className="card-arrow">↗</span>
-          </article>)}
+          </a>)}
         </div>
+        <div className="service-catalog-cta"><a className="text-link" href={"/" + locale + "/services"}>{rtl ? "استكشف كتالوج الخدمات بالكامل" : "Explore the full service catalogue"} <span>↗</span></a></div>
       </section>
 
       <section className="capabilities-section" id="capabilities">
