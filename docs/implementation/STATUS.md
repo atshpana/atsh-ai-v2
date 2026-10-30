@@ -1,9 +1,9 @@
 # Implementation Status
 
-- Updated: 30 October 2026 (quote decision security contract)
+- Updated: 30 October 2026 (public service catalogue and detail screens)
 - Repository: atshpana/atsh-ai-v2
 - Branch: implementation/bootstrap
-- Latest branch HEAD: `a1892d0b846d788bc12a9fdc55854f8fd69cae78` (localized public homepage routing documentation). Recent related commits include `0bf14ac9c80781d9562c4abad94a2e05ea992ffe` (Next.js Proxy routing) and `edc62f9e5ab8e1b646f4add73575b5ae8246794f` (locale route validation).
+- Latest branch HEAD: refreshed after the service catalogue/detail implementation; see the branch commit history for the current SHA.
 
 ## Confirmed owner decisions
 - Full greenfield rebuild; legacy code and legacy database excluded.
@@ -23,7 +23,9 @@
 - Added responsive layouts for desktop/tablet/mobile, keyboard focus states and reduced-motion handling; the visual direction uses restrained graphite, silver and red accents.
 - Added durable `/ar` and `/en` homepage routes; `/` redirects to `/ar`. The language switch navigates between locale routes while retaining the current section hash when present. The Next.js `proxy.ts` convention supplies the locale to the root layout so the document `lang` and `dir` attributes match Arabic RTL or English LTR. Locale-specific title/description, canonical URLs, alternate-language links and Open Graph locale metadata are generated per route.
 - Added the owner-supplied original hero artwork (`/images/atsh-hero.jpg`) and original circular ATSH emblem (`/images/atsh-logo.jpg`) to the public homepage. The hero artwork preserves its source aspect ratio; the header emblem is cropped within a circular frame. No stock or generated replacement assets are used.
-- Converted the public homepage to durable Arabic/English locale routes, root redirect via Next.js Proxy, locale-aware document direction/language and per-locale SEO metadata. CI verification is pending for this routing change.
+- Converted the public homepage to durable Arabic/English locale routes, root redirect via Next.js Proxy, locale-aware document direction/language and per-locale SEO metadata.
+- Added a bilingual six-service catalogue with client-side search, category filters, sorting, result count and empty state. Added localized service detail routes with benefits, scope, deliverables, related services, contact CTA and route-specific SEO/alternate-language metadata. Homepage service cards now open the corresponding detail page.
+- Pricing is intentionally not fabricated: the public pages explain that commercial scope and quotation require requirements review until the approved server-side pricing/catalogue APIs are implemented. No add-to-cart or order submission is represented as live.
 - Professional Arabic administration shell with responsive navigation across the 15 company workspace areas, owner command center, truthful empty states and module landing routes.
 - Expanded owner command center: all 15 company workspaces linked, owner shortcuts, business-pulse metric placeholders tied to their source modules, operational alerts empty state, platform-readiness panel and protected governance gates. No synthetic operational figures are displayed.
 - Responsive workspace-card grid and owner command-center visual treatment added to the admin stylesheet.
@@ -64,8 +66,8 @@
 ## Next actions
 1. Verify the push-triggered GitHub Actions run for the latest implementation commit; correct dependency/schema/compile failures and commit a reproducible lockfile.
 2. Verify CI for the customer quote-review portal; implement quote persistence and customer decisions only after authentication, customer-account linking, immutable version enforcement, idempotency, transactional audit and decision/change-request persistence are implemented and tested.
-3. Complete CI and browser verification for the new locale routes, including `/` redirect, Arabic RTL, English LTR, section-hash preservation and alternate-language metadata.
-4. Implement the service listing, service details, option configurator, cart and secure request submission only after the required API and pricing contracts are ready.
+3. Complete CI and browser verification for the locale routes and new service catalogue/detail screens, including `/` redirect, Arabic RTL, English LTR, search/filter/empty states, detail links and alternate-language metadata.
+4. Implement the option configurator, cart and secure request submission only after the required API and pricing contracts are ready.
 5. Complete the permission matrix, entity ownership matrix and lifecycle state machines; refine drafts into approved permission keys.
 6. Expand Prisma schema for projects, workflow plans/tasks, approvals, staff/agents, customer portal, support, hosting, finance, content and notifications.
 7. Add authentication/session, authorization guards and tenant-scope tests before protected business endpoints.
