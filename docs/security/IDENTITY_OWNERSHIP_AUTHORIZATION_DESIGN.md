@@ -124,13 +124,9 @@ The current generic `UserRole.scopeType/scopeId` should not be treated as a comp
 
 ## 7. Authentication and session boundary
 
-Authentication provider selection remains open. The data model must remain provider-neutral.
+**Owner decision (31 October 2026):** Internal ATSH staff sign-in will use a managed identity/sign-in service; ATSH will not build and operate its own staff password-authentication system. The specific provider/vendor and exact integration/session configuration remain open. This approval is limited to internal staff authentication and does not decide customer-portal identity, MFA policy, or whether staff and customers share a tenant.
 
-Before implementation, decide whether ATSH will:
-- Delegate authentication and session management to a managed identity provider; or
-- Operate a first-party authentication/session service.
-
-In either case:
+The data model must remain provider-neutral until the provider is selected. In either case:
 - Store provider subject identifiers with issuer/provider context and uniqueness scoped correctly; a globally unique bare subject may not be sufficient across issuers.
 - Never store plaintext passwords, raw bearer tokens, or raw MFA secrets in ordinary tables.
 - Session records, if persisted by ATSH, should contain a non-reversible token verifier/hash, expiry, revocation and minimal device/session metadata.
@@ -197,8 +193,10 @@ Do not add unused generic JSON permission blobs or arbitrary string-based scope 
 ## 11. Non-decisions preserved
 
 This document does not select:
-- Authentication/identity provider.
-- Session ownership model.
+- The managed identity provider/vendor for internal staff.
+- Exact staff session integration/configuration.
+- Customer-portal authentication provider or whether it shares the staff tenant.
+- Session ownership model for customer identities.
 - MFA requirement or provider.
 - Customer account semantics (Option A/B/C).
 - Legal/KYC or customer verification requirements.
@@ -217,4 +215,4 @@ No protected customer portal or business API should be considered production-rea
 - The resulting schema has passed Prisma validation, generated-client checks, and an empty ephemeral PostgreSQL migration test.
 - The owner approves the migration boundary before any persistent database is provisioned or migrated.
 
-**Current decision: design only; no schema or migration changes.**
+**Current decision: staff authentication direction approved (managed identity); provider selection and customer-account model remain open. Design only; no schema or migration changes.**
