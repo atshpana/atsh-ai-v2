@@ -128,3 +128,12 @@
 - Accordingly, no migration SQL or migration lock was committed. CI was corrected in commit `94188fb6b3d79c9345351059aa7bf04ed5beda52` to generate and upload the SQL as a temporary review artifact only. It no longer provisions PostgreSQL or applies the incomplete draft. The preview is written under the runner temporary directory, not the Prisma migrations folder.
 - **Current state:** Prisma schema validation/generation, typecheck, build and unit tests remain CI checks. The database baseline remains **Designed / under review**, not approved or applied. No persistent database exists or is connected.
 - Next: reconcile the complete approved screen/flow requirements and domain specifications into the logical data model; resolve the static review findings; regenerate and review a new preview. Only after that, run a disposable empty-PostgreSQL migration test and seek explicit baseline approval before committing a first migration.
+
+
+## Screen/flow-to-data traceability — 30 October 2026
+
+- Expanded `docs/data/PRISMA_MODEL_GAP_ANALYSIS.md` with a source-ID mapping across PUB-01..PUB-15, ADM-01..ADM-20, public intake/pricing, administration review, content publication, quote acceptance, project/software delivery, customer portal, support, AI/workflows, hosting, domains and finance.
+- Added cross-cutting customer/staff/agent authority paths, source-derived flow acceptance gates, and a dependency-ordered recommendation for the next schema design slice.
+- The analysis explicitly distinguishes existing Prisma coverage from missing records and unimplemented controls. It does not claim UI/API/runtime completion and does not change the Prisma schema.
+- Traceability update commit: `f8fee900bec6f8e691c510095d1a01502c9b765b`.
+- Next implementation boundary: design the vendor-neutral identity/ownership and commercial-intake foundation before adding downstream project, AI, hosting, finance or domain models. Authentication vendor, payment/tax/currency policy and external providers remain open.
