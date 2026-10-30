@@ -19,7 +19,8 @@
 - ADR-0001 architecture marked Accepted.
 - Workspace skeleton for public web, admin, customer portal, NestJS API and worker.
 - Initial bilingual public website UI shell with RTL/LTR switching and responsive styling.
-- Initial Arabic admin shell and customer portal placeholder.
+- Professional Arabic administration shell with responsive navigation across the 15 company workspace areas, owner command center, truthful empty states and module landing routes.
+- Customer portal placeholder.
 - NestJS API bootstrap and health endpoint.
 - Initial shared UI design tokens.
 - CI workflow configured for Node 22.22.3, dependency installation, Prisma validation/generation, typecheck, build and unit tests.
@@ -31,6 +32,8 @@
 - Initial Prisma schema added for users/RBAC, customers, bilingual service catalog/options, pricing versions/rules, service requests/snapshots/events, quotes/acceptance and audit events.
 - Prisma config and safe .env.example added.
 - Draft server-side role/permission matrix and data-classification baseline added.
+- Workflow state-machine rules documented for requests, quotes, project plans, tasks, change requests, approvals and releases.
+- Admin UI module route scaffolds added; no protected data or operational APIs are connected.
 - Request, quote, project-plan, task, change-request and release state-machine rules documented.
 - First API unit test added for the health controller.
 
@@ -44,7 +47,7 @@
 - Project/workflow/AI/support/hosting/finance/content/media/notification models remain to be designed and added.
 - No production/staging environment or deployment exists.
 - UI shells are initial scaffolds, not complete reference-matched screens; no measured screenshot comparison has been performed.
-- No automated browser or security test suite has been implemented.
+- One compiled Node unit test exists for the API health controller; no automated browser or security test suite has been implemented.
 
 ## Next actions
 1. Verify GitHub Actions CI; correct dependency/schema/compile failures and commit a reproducible lockfile.
