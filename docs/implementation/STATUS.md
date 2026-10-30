@@ -22,6 +22,7 @@
 - Professional Arabic administration shell with responsive navigation across the 15 company workspace areas, owner command center, truthful empty states and module landing routes.
 - Customer portal placeholder.
 - NestJS API bootstrap and health endpoint.
+- Global deny-by-default permissions guard, explicit Public/RequirePermissions decorators and unit tests for authorization behavior.
 - Initial shared UI design tokens.
 - CI workflow configured for Node 22.22.3, dependency installation, Prisma validation/generation, typecheck, build and unit tests.
 - Dependency baseline documented: Next.js 16.4.3, React 19.3.1, NestJS 12.3.0, CLI/schematics 12.0.11, TypeScript 6.0.3 and Prisma 7.10.1.
@@ -43,11 +44,11 @@
 - Local execution is blocked by the current container Node version (22.16.0), below the selected Node 22.22.3 baseline; external network access is unavailable in this execution environment.
 - No PostgreSQL database provisioned or connected.
 - No migration generated or applied.
-- No authentication/session implementation, authorization guards, business APIs or persistence services are complete.
+- No authentication/session implementation, request-principal population, database-backed permission resolution, business APIs or persistence services are complete.
 - Project/workflow/AI/support/hosting/finance/content/media/notification models remain to be designed and added.
 - No production/staging environment or deployment exists.
 - UI shells are initial scaffolds, not complete reference-matched screens; no measured screenshot comparison has been performed.
-- One compiled Node unit test exists for the API health controller; no automated browser or security test suite has been implemented.
+- Health endpoint and permission-guard unit tests are authored but have not run; no automated browser or full security integration suite has been implemented.
 
 ## Next actions
 1. Verify GitHub Actions CI; correct dependency/schema/compile failures and commit a reproducible lockfile.
