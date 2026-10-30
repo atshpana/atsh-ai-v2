@@ -1,9 +1,9 @@
 # Implementation Status
 
-- Updated: 30 October 2026 (public service catalogue and detail screens)
+- Updated: 30 October 2026 (public configurator and cart contract)
 - Repository: atshpana/atsh-ai-v2
 - Branch: implementation/bootstrap
-- Latest branch HEAD: refreshed after the service catalogue/detail implementation; see the branch commit history for the current SHA.
+- Latest branch HEAD before this status update: `6c40f59dd80ad4a5120412f80377d4d1d49bf2a3` (linked public configurator/cart contract into the API inventory).
 
 ## Confirmed owner decisions
 - Full greenfield rebuild; legacy code and legacy database excluded.
@@ -26,6 +26,7 @@
 - Converted the public homepage to durable Arabic/English locale routes, root redirect via Next.js Proxy, locale-aware document direction/language and per-locale SEO metadata.
 - Added a bilingual six-service catalogue with client-side search, category filters, sorting, result count and empty state. Added localized service detail routes with benefits, scope, deliverables, related services, contact CTA and route-specific SEO/alternate-language metadata. Homepage service cards now open the corresponding detail page.
 - Pricing is intentionally not fabricated: the public pages explain that commercial scope and quotation require requirements review until the approved server-side pricing/catalogue APIs are implemented. No add-to-cart or order submission is represented as live.
+- Added `docs/api/PUBLIC_CONFIGURATOR_CART_CONTRACT.md`: versioned configurator read contract, server-authoritative decimal pricing response, custom-quote behavior, cart ownership/revalidation, price-change confirmation, idempotent transactional submission boundary, safe error envelope and acceptance-test matrix. Design only; no live API or cart mutations are enabled.
 - Professional Arabic administration shell with responsive navigation across the 15 company workspace areas, owner command center, truthful empty states and module landing routes.
 - Expanded owner command center: all 15 company workspaces linked, owner shortcuts, business-pulse metric placeholders tied to their source modules, operational alerts empty state, platform-readiness panel and protected governance gates. No synthetic operational figures are displayed.
 - Responsive workspace-card grid and owner command-center visual treatment added to the admin stylesheet.
@@ -52,6 +53,7 @@
 - API unit tests added for the health controller and deny-by-default permission guard.
 
 ## Not yet completed or verified
+- CI for the first service-catalogue/detail commits exposed a TypeScript import-path error; the import was corrected in a follow-up commit. The current CI run for `2678730be8c6085c1fb4ff0ebcd28e89a8a7f685` has passed TypeScript typecheck and is running the build; unit tests have not yet started. Do not mark this batch fully verified until the run concludes.
 - No clean install or lockfile committed.
 - The CI run for commit `a069a32dffb4d0b60482d17a07fdbbfc21d34a3f` completed successfully, including dependency installation, Prisma validation/generation, TypeScript typecheck, build and unit tests. CI for the quote-editor scaffold through commit `83cfbeac779cd138340c9861ed639c2012dc4b65` completed successfully. Later quote-review UI and localized public-routing commits are still running/queued and are not yet verified.
 - Local execution is blocked by the current container Node version (22.16.0), below the selected Node 22.22.3 baseline; external network access is unavailable in this environment.
@@ -64,10 +66,11 @@
 - Health endpoint and permission-guard unit tests passed in the CI run for commit `a069a32dffb4d0b60482d17a07fdbbfc21d34a3f`; the new customer UI has no dedicated browser tests yet, and no full security integration suite has been implemented.
 
 ## Next actions
-1. Verify the push-triggered GitHub Actions run for the latest implementation commit; correct dependency/schema/compile failures and commit a reproducible lockfile.
-2. Verify CI for the customer quote-review portal; generate and review a complete initial Prisma migration from the full schema; then implement authentication, customer-account linking, immutable version enforcement, idempotency, transactional audit and decision/change-request persistence with integration tests.
-3. Complete CI and browser verification for the locale routes and new service catalogue/detail screens, including `/` redirect, Arabic RTL, English LTR, search/filter/empty states, detail links and alternate-language metadata.
-4. Implement the option configurator, cart and secure request submission only after the required API and pricing contracts are ready.
+1. Verify the current CI run and all service-catalogue/detail and customer quote-review workflows; correct failures before expanding the public purchase flow.
+2. Complete the catalog/configurator persistence design and review option dependency/conflict rules against the reference before extending Prisma; no migration or database connection without owner-approved provider and isolated environment.
+3. Implement the server-side pricing module and tests against `docs/api/PUBLIC_CONFIGURATOR_CART_CONTRACT.md`; keep prices and taxes disabled until approved commercial rules exist.
+4. Implement cart ownership/session, server-side revalidation, price-change confirmation and idempotent request submission only after authentication/session, persistence and API integration tests are ready.
+5. Complete browser verification for locale routes and service listing/details: `/` redirect, Arabic RTL, English LTR, search/filter/empty states, detail links and alternate-language metadata.
 5. Complete the permission matrix, entity ownership matrix and lifecycle state machines; refine drafts into approved permission keys.
 6. Expand Prisma schema for projects, workflow plans/tasks, approvals, staff/agents, customer portal, support, hosting, finance, content and notifications.
 7. Add authentication/session, authorization guards and tenant-scope tests before protected business endpoints.
