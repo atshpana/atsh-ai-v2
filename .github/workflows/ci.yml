@@ -34,6 +34,8 @@ jobs:
         run: npm run db:generate --workspace @atsh/api
       - name: Generate baseline migration preview (not applied)
         working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://atsh_dev:placeholder@127.0.0.1:5432/atsh_ai_dev?schema=public
         run: |
           mkdir -p prisma/migrations/0_init
           npm run db:baseline:preview > prisma/migrations/0_init/migration.sql
