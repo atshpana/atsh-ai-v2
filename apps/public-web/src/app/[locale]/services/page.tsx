@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { getPublicServices, type SiteLocale } from "../service-catalog";
+import { getPublicServices, type SiteLocale } from "../../service-catalog";
 
 const labels = {
   ar: { eyebrow:"ATSH AI / SERVICES", title:"حلول تبدأ من احتياجك", intro:"استكشف مجالات الخدمات، وقارن نطاق كل حل ومخرجاته. يتحدد النطاق التجاري والسعر بعد مراجعة المتطلبات.", search:"ابحث عن خدمة...", all:"كل المجالات", categories:[["web","المواقع"],["commerce","التجارة الإلكترونية"],["mobile","تطبيقات الموبايل"],["systems","الأنظمة"],["ai","الذكاء الاصطناعي"],["automation","الأتمتة"]], result:"خدمة", results:"خدمات", empty:"لا توجد خدمات تطابق البحث الحالي.", clear:"مسح البحث والفلاتر", open:"عرض التفاصيل", pricing:"تحديد النطاق وعرض السعر بعد المراجعة", sort:"الترتيب", order:"الترتيب الافتراضي", az:"الاسم: أ إلى ي" },
