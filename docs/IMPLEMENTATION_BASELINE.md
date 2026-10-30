@@ -14,6 +14,14 @@ The authoritative product and technical requirements are the user's Executive Re
 - n8n orchestration, GitHub-based development workflow, isolated execution environments and independent testing.
 - Hosting/domain inventory and operations, support, finance and reporting modules.
 
+## Approved language scope (owner decision, 30 October 2026)
+- Public website only: Arabic and English.
+- The visitor can switch between Arabic and English.
+- Arabic layout uses RTL; English layout uses LTR.
+- Language switching must preserve the current page/context where feasible, with localized navigation, content, validation messages, metadata and SEO alternate-language relationships.
+- Internal administration dashboard: Arabic only for the current scope. Do not build an English translation of the admin dashboard unless the owner later requests it.
+- This decision does not automatically define the customer portal language. Keep that scope open rather than assuming it is bilingual or Arabic-only.
+
 ## System boundaries
 - Public visitor: public catalog and intake only.
 - Customer: own account, requests, projects, files, approvals and contracted product modules only.
