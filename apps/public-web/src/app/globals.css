@@ -145,3 +145,8 @@ h1 span{color:#b9c1c6}h1 i{font-style:normal;color:var(--accent)}
  .footer{font-size:8px;gap:12px}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
+
+/* Wordmark treatment: the approved interlaced logo artwork is intentionally not approximated in CSS. */
+.visual-monogram{gap:12px;letter-spacing:-.09em}
+.visual-monogram span{font-size:1em}
+.visual-monogram b{font-size:.34em;align-self:center;letter-spacing:.02em;color:var(--accent);text-shadow:0 0 22px rgba(237,91,85,.55);margin-inline-start:8px}
