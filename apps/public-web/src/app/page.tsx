@@ -146,6 +146,7 @@ export default function HomePage() {
     <main className={rtl ? "site" : "site site-en"} dir={rtl ? "rtl" : "ltr"} lang={locale}>
       <header className="topbar">
         <a className="brand" href="#home" aria-label="ATSH AI home">
+          <img className="brand-logo" src="/images/atsh-logo.jpg" alt="شعار ATSH AI" />
           <span className="brand-wordmark">ATSH <b>AI</b></span>
         </a>
         <nav className="nav-links" aria-label={rtl ? "التنقل الرئيسي" : "Main navigation"}>
@@ -170,12 +171,9 @@ export default function HomePage() {
           </div>
           <div className="hero-note"><span className="note-line" />{t.heroNote}</div>
         </div>
-        <div className="hero-visual" aria-label="ATSH AI visual identity">
+        <div className="hero-visual">
           <div className="hero-visual-frame">
-            <div className="visual-topline"><span>ATSH AI / DIGITAL SYSTEMS</span><span>01 — 04</span></div>
-            <div className="visual-monogram" aria-hidden="true"><span>ATSH</span><b>AI</b></div>
-            <div className="visual-baseline"><span>DESIGN</span><span>ENGINEERING</span><span>INTELLIGENCE</span></div>
-            <div className="visual-redlight" />
+            <img className="hero-artwork" src="/images/atsh-hero.jpg" alt="لوحة ATSH AI المعدنية بالشعار الأصلي" />
           </div>
           <div className="visual-caption"><span>01 / BUILT AROUND YOUR BUSINESS</span><span className="caption-status"><i /> SYSTEM THINKING</span></div>
         </div>
