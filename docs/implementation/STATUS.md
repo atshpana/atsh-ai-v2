@@ -1,6 +1,6 @@
 # Implementation Status
 
-- Updated: 30 October 2026 (quote editor workspace scaffold)
+- Updated: 30 October 2026 (localized public homepage routes)
 - Repository: atshpana/atsh-ai-v2
 - Branch: implementation/bootstrap
 - Latest implementation commits: `eaf121046479a2358b44166c82558dd37496d078` (quote editor route) and `02d4bb70d13bbb5d4d252d8a903b2a85fe0ca6b6` (quote editor styles).
@@ -21,8 +21,9 @@
 - Workspace skeleton for public web, admin, customer portal, NestJS API and worker.
 - Reworked the public website homepage into a structured bilingual experience: hero, delivery approach, six service areas, engineering capabilities, interactive illustrative workflow, scope/acceptance principles, FAQ and CTA.
 - Added responsive layouts for desktop/tablet/mobile, keyboard focus states and reduced-motion handling; the visual direction uses restrained graphite, silver and red accents.
-- Refined page metadata for indexing and application identity. Language switching remains client-side state on the homepage; durable locale routes, context-preserving navigation and alternate-language SEO metadata are still pending.
+- Added durable `/ar` and `/en` homepage routes; `/` redirects to `/ar`. The language switch navigates between locale routes while retaining the current section hash when present. Middleware supplies the locale to the root layout so the document `lang` and `dir` attributes match Arabic RTL or English LTR. Locale-specific title/description, canonical URLs, alternate-language links and Open Graph locale metadata are generated per route.
 - Added the owner-supplied original hero artwork (`/images/atsh-hero.jpg`) and original circular ATSH emblem (`/images/atsh-logo.jpg`) to the public homepage. The hero artwork preserves its source aspect ratio; the header emblem is cropped within a circular frame. No stock or generated replacement assets are used.
+- Converted the public homepage to durable Arabic/English locale routes, root redirect, locale-aware document direction/language and per-locale SEO metadata. CI verification is pending for this routing change.
 - Professional Arabic administration shell with responsive navigation across the 15 company workspace areas, owner command center, truthful empty states and module landing routes.
 - Expanded owner command center: all 15 company workspaces linked, owner shortcuts, business-pulse metric placeholders tied to their source modules, operational alerts empty state, platform-readiness panel and protected governance gates. No synthetic operational figures are displayed.
 - Responsive workspace-card grid and owner command-center visual treatment added to the admin stylesheet.
@@ -59,7 +60,7 @@
 ## Next actions
 1. Verify the push-triggered GitHub Actions run for the latest implementation commit; correct dependency/schema/compile failures and commit a reproducible lockfile.
 2. Verify CI for the latest quote-editor commits; implement quote persistence and version review only after authentication, API, pricing and approval contracts are defined.
-3. Convert the public website to durable locale-aware routes, preserve page context on language switching, and add locale-specific metadata/alternate links.
+3. Complete CI and browser verification for the new locale routes, including `/` redirect, Arabic RTL, English LTR, section-hash preservation and alternate-language metadata.
 4. Implement the service listing, service details, option configurator, cart and secure request submission only after the required API and pricing contracts are ready.
 5. Complete the permission matrix, entity ownership matrix and lifecycle state machines; refine drafts into approved permission keys.
 6. Expand Prisma schema for projects, workflow plans/tasks, approvals, staff/agents, customer portal, support, hosting, finance, content and notifications.
