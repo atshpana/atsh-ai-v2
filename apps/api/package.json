@@ -10,7 +10,8 @@
     "build": "nest build",
     "typecheck": "tsc --noEmit",
     "db:validate": "prisma validate",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "test": "node --test dist/health.controller.spec.js"
   },
   "dependencies": {
     "@nestjs/common": "^12.3.0",
