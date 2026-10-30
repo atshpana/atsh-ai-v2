@@ -35,13 +35,12 @@
 - Draft server-side role/permission matrix and data-classification baseline added.
 - Workflow state-machine rules documented for requests, quotes, project plans, tasks, change requests, approvals and releases.
 - Admin UI module route scaffolds added; no protected data or operational APIs are connected.
-- Request, quote, project-plan, task, change-request and release state-machine rules documented.
-- First API unit test added for the health controller.
+- API unit tests added for the health controller and deny-by-default permission guard.
 
 ## Not yet completed or verified
-- No clean install or lockfile committed. The local execution container has Node 22.16.0, below the selected Node 22.22.3 baseline; external network access is unavailable here.
+- No clean install or lockfile committed.
 - CI run/build/typecheck/Prisma validation status has not been confirmed.
-- Local execution is blocked by the current container Node version (22.16.0), below the selected Node 22.22.3 baseline; external network access is unavailable in this execution environment.
+- Local execution is blocked by the current container Node version (22.16.0), below the selected Node 22.22.3 baseline; external network access is unavailable in this environment.
 - No PostgreSQL database provisioned or connected.
 - No migration generated or applied.
 - No authentication/session implementation, request-principal population, database-backed permission resolution, business APIs or persistence services are complete.
