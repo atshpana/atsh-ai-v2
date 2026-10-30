@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "db:validate": "prisma validate",
     "db:generate": "prisma generate",
+    "db:baseline:preview": "prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script",
     "test": "tsc --project tsconfig.json --outDir dist-test && node --test dist-test/health.controller.spec.js dist-test/security/permissions.guard.spec.js"
   },
   "dependencies": {
