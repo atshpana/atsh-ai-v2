@@ -22,7 +22,7 @@
 - Initial Arabic admin shell and customer portal placeholder.
 - NestJS API bootstrap and health endpoint.
 - Initial shared UI design tokens.
-- CI workflow configured for Node 22.22.3, dependency installation, Prisma validation/generation, typecheck and build.
+- CI workflow configured for Node 22.22.3, dependency installation, Prisma validation/generation, typecheck, build and unit tests.
 - Dependency baseline documented: Next.js 16.4.3, React 19.3.1, NestJS 12.3.0, CLI/schematics 12.0.11, TypeScript 6.0.3 and Prisma 7.10.1.
 - Source-derived catalog of 15 public screens and 20 admin screens.
 - Core public intake, conditional pricing, admin review, content publishing and software-delivery flows catalogued.
@@ -30,10 +30,14 @@
 - New PostgreSQL logical data model drafted.
 - Initial Prisma schema added for users/RBAC, customers, bilingual service catalog/options, pricing versions/rules, service requests/snapshots/events, quotes/acceptance and audit events.
 - Prisma config and safe .env.example added.
+- Draft server-side role/permission matrix and data-classification baseline added.
+- Request, quote, project-plan, task, change-request and release state-machine rules documented.
+- First API unit test added for the health controller.
 
 ## Not yet completed or verified
 - No clean install or lockfile committed.
 - CI run/build/typecheck/Prisma validation status has not been confirmed.
+- Local execution is blocked by the current container Node version (22.16.0), below the selected Node 22.22.3 baseline; external network access is unavailable in this execution environment.
 - No PostgreSQL database provisioned or connected.
 - No migration generated or applied.
 - No authentication/session implementation, authorization guards, business APIs or persistence services are complete.
@@ -44,9 +48,9 @@
 
 ## Next actions
 1. Verify GitHub Actions CI; correct dependency/schema/compile failures and commit a reproducible lockfile.
-2. Complete the permission matrix, entity ownership matrix and lifecycle state machines.
+2. Complete the permission matrix, entity ownership matrix and lifecycle state machines; refine drafts into approved permission keys.
 3. Expand Prisma schema for projects, workflow plans/tasks, approvals, staff/agents, customer portal, support, hosting, finance, content and notifications.
-4. Add test setup and API security primitives before implementing protected business endpoints.
+4. Add authentication/session, authorization guards and tenant-scope tests before protected business endpoints.
 5. Convert public website to durable locale-aware routes and metadata; verify context-preserving language switching.
 6. Extract remaining detailed screen-by-screen requirements and build design tokens/components against the supplied visual references.
 7. Select the PostgreSQL hosting provider only after security, backup, latency and cost review; then provision an isolated development database with owner approval.
