@@ -34,9 +34,25 @@
 - n8n coordinates notifications and approved external workflow steps through signed webhooks. It is not the domain database and must not independently decide eligibility, price, ownership or lifecycle state.
 - Registrar integrations are isolated behind a provider adapter interface. The provider is not selected by this specification.
 - Hosting is a related but separate module. A domain may point to a hosting service, but domain registration and hosting subscription remain separately itemized and renewable.
-- No live registrar API, DNS mutation, renewal charge or production operation is enabled by this document.
+- No live registrar API, DNS mutation, renewal charge or production operation is enabled by this document. The required target experience is live provider-backed availability search and in-platform registration purchase; this specification does not claim those capabilities are implemented yet.
 
 ## 3. Screen inventory and interaction requirements
+
+### 3.0 Mandatory live domain search and in-platform registration
+
+**Owner requirement:** customers and authorized ATSH operators must be able to search domain availability live and complete the registration purchase from ATSH screens, without being redirected to the registrar's storefront for the normal supported flow.
+
+- The search is an on-demand live query to the selected registrar/provider adapter from the ATSH UI through NestJS. It is not a hard-coded/local availability guess. The UI must show progress and the provider-confirmed result with a timestamp.
+- Support searching a full domain or label plus TLD, and show supported alternative TLDs only when returned by the configured provider/catalogue. Do not claim global availability coverage where provider/registry coverage is absent.
+- Search results distinguish available, unavailable, premium, restricted, unsupported TLD, provider timeout/error and indeterminate status. An indeterminate/provider-error result must never be presented as available.
+- For an available domain, the same screen presents the current registration term, first-term customer price, renewal price, currency, included entitlement or add-on charge, taxes/fees if configured, registrant requirements and material restrictions.
+- The customer can select the domain, confirm registrant details and legal ownership, accept the exact current quote/term/renewal terms, complete payment through the separately approved payment integration, and submit the registration from ATSH screens.
+- Registration is executed server-to-server through the registrar adapter only after all required gates pass: fresh availability and price recheck, valid package entitlement or paid line item, customer registrant data, explicit customer authorization, and verified payment/approved payment state according to the eventual payment policy.
+- The UI displays distinct states: checking, available, unavailable, premium quote, awaiting customer confirmation, awaiting payment, registering, provider pending, registered, failed/retryable and manual review. Never show success before registrar confirmation.
+- If the provider requires an exceptional external step (registry identity verification, email verification, customer account creation or a registry-specific action), show the exact outstanding action and track it in ATSH; disclose any unavoidable provider handoff. Normal discovery, quote acceptance and order submission remain inside ATSH.
+- Admin operators can initiate or assist a customer order from the admin screen only with a recorded customer authorization and customer-owned registrant details. Admin convenience must not transfer registrant ownership to ATSH.
+- The registrar storefront is not the default booking UX. A provider lacking the required API capability cannot be used for the promised in-platform live-search-and-registration experience; select a compatible provider or clearly disable that TLD/operation until supported.
+
 
 ### 3.1 Public configurator — step 5/8: Hosting and domain
 
@@ -46,7 +62,8 @@ Add a domain section to the existing step; do not create a ninth step.
 - Domain choice: `NEW_REGISTRATION`, `PACKAGE_INCLUDED`, `USE_EXISTING`, `TRANSFER_IN`, `DECIDE_LATER`.
 - Requested second-level label and TLD selector for new/included registration.
 - Existing domain field for connection or transfer.
-- Availability-check action for new registration, with loading, available, unavailable, premium/restricted, provider-error and timeout states.
+- Live availability search action for new registration, with loading, available, unavailable, premium/restricted, unsupported-TLD, provider-error, indeterminate and timeout states; results come from the configured provider API and display checked-at time.
+- An in-screen purchase path for an available domain: select term → review first-term and renewal quote → confirm customer registrant/ownership data and terms → complete approved payment step → submit registration through the provider API → show verified registration outcome. No registrar-storefront redirect for the standard supported path.
 - Result card showing exact domain, TLD, provider availability timestamp, registration term, first-term price, renewal price, currency, included/paid status and important exclusions.
 - Customer registrant/contact confirmation before order submission.
 - Separate explanation of domain charges and hosting charges; never merge recurring hosting and domain line items into development fees.
@@ -61,7 +78,8 @@ Add a domain section to the existing step; do not create a ninth step.
 - Normalize domain input to IDNA/Punycode for provider operations while preserving a safe display form.
 - Validate label/TLD syntax, prohibited names, registry restrictions and contact requirements.
 - Do not reserve a domain during a read-only availability check.
-- Recheck availability and price immediately before order creation/registration.
+- Recheck availability and price immediately before order creation and again at the registration execution boundary where provider semantics permit; a search result is not a reservation.
+- Registration purchase must be completable in ATSH screens through NestJS and the selected registrar API. Do not treat a link to a registrar storefront as satisfying this requirement.
 - If price or availability changes, require the customer to review and accept the new result; never silently charge a different amount.
 - `DECIDE_LATER` preserves the fact that the customer deferred the decision and does not create a domain order.
 
@@ -378,10 +396,10 @@ The module is not complete until:
 
 | Decision | Current status | Required before |
 |---|---|---|
-| Registrar/reseller provider and supported API | Open | Live availability/registration |
+| Registrar/reseller provider and supported API | Open; must support live availability lookup, quote/price retrieval and server-side registration API for the required TLDs | Enable in-platform live search and purchase |
 | Registrar account model (customer-owned account vs delegated reseller sub-account) | Open; must preserve customer registrant ownership and exit rights | Live registration |
 | Renewal inclusion in packages and renewal reminder schedule | Open | Publish package terms and renewal automation |
-| Currency, taxes, payment provider and charge timing | Open | Any live commercial transaction |
+| Currency, taxes, payment provider and charge timing | Open | Any live commercial transaction or in-screen checkout |
 | TLD catalogue and registry-specific eligibility | Open; provider-dependent | Publish actual options |
 | DNS provider and whether ATSH may mutate DNS automatically | Open | Live DNS writes |
 | Customer portal language | Open globally | Final localized portal UI |
@@ -401,3 +419,4 @@ The module is not complete until:
 ## 12. Change log
 
 - v1.0 — Owner approved `both` package policy and `client` ownership/management policy. Added screen inventory, logical data model, API contract, lifecycle state machines, n8n workflow map, permissions, tests, acceptance gates and unresolved commercial/provider decisions.
+- v1.1 — Explicitly made live provider-backed domain availability search and end-to-end in-platform registration purchase a mandatory customer/admin-screen capability; added checkout gates and provider-selection constraint.
