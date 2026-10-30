@@ -1,44 +1,25 @@
-# Phase 0 — Read-only Current-State Audit
+# Phase 0 — Greenfield Foundation
 
 ## Purpose
-Identify the real legacy code, deployed application, database and release process before choosing the new stack or making changes.
+Prepare a clean implementation from the approved Executive Reference v2.0. The legacy application and legacy database are explicitly excluded by the owner's reset decision.
 
-## Known GitHub observations (30 October 2026)
-- Legacy repository identified: `BOB-Security/atsh-ai-website`.
-- Default branch observed: `main`.
-- The repository contains a root-level legacy application and separate `greenfield/` and `platform/` application trees.
-- The repository has multiple rebuild/feature branches, including `rebuild/atsh-ai-from-scratch`, `rebuild/atsh-ai-clean-v2` and `rebuild/atsh-ai-greenfield`.
-- The `platform/` tree is a Node.js/Express application using PostgreSQL (`pg`), with routes for public intake, administration, team, operations, assistant and customer portal.
-- The `greenfield/` tree is another Express-based implementation with its own server and database compatibility notes.
-- The current repository documentation describes Azure App Service deployment workflows and PostgreSQL connection settings.
-- The repository also contains SQL migrations/schema files. Their presence is not proof that they match the live database or have been applied.
+## Binding scope
+- No code reuse from the legacy system.
+- No legacy database inspection, connection, schema import, data migration or compatibility work.
+- No production resource changes.
+- The new application database is designed from the requirements and provisioned independently after the architecture and security baseline are established.
 
-## Critical interpretation
-There are multiple competing implementation tracks in the legacy repository. None is automatically selected as the new design foundation. The new build is to be developed independently in this repository, as required by Executive Reference v2.0.
-
-## Audit checklist — no writes
-### Repository and deployment
-- [ ] Record exact legacy commit SHA and branch intended for production.
-- [ ] Identify the actual production deployment workflow and its trigger conditions.
-- [ ] Identify the deployed application root, runtime version, build command and startup command.
-- [ ] Identify Azure App Service/resource group and deployment target without changing settings.
-- [ ] Inventory environment variable names only; never retrieve or expose secret values.
-- [ ] Identify DNS/traffic routing and the currently deployed commit.
-
-### Database
-- [ ] Confirm actual provider, engine and version from the deployment configuration.
-- [ ] Confirm the live database identity without exposing credentials.
-- [ ] Obtain a read-only schema inventory: tables, columns, types, indexes, constraints, foreign keys, triggers, views, extensions and row counts where permitted.
-- [ ] Compare live schema with every relevant migration history and the code paths that use it.
-- [ ] Determine backup mechanism, retention and last successful restore rehearsal.
-- [ ] Do not run migrations, bootstrap scripts, seed scripts or data-changing queries.
-
-### Product and behavior
-- [ ] Map existing public pages and customer-facing routes.
-- [ ] Map admin and customer portal routes and server-side permission enforcement.
-- [ ] Inventory existing APIs, integrations, AI providers and workflow automations.
-- [ ] Record known production defects and incomplete modules.
-- [ ] Separate verified behavior from code-only or documentation-only claims.
+## Foundation work
+- [x] Confirm the authoritative Executive Reference v2.0 is available.
+- [x] Confirm the implementation repository and isolated branch.
+- [x] Record the owner's greenfield reset decision.
+- [x] Record approved language boundaries.
+- [ ] Extract a traceable requirement inventory from the reference.
+- [ ] Establish architecture decision records and module boundaries.
+- [ ] Establish the design-token and component foundations from the approved visual references.
+- [ ] Define the new logical data model and authorization matrix.
+- [ ] Define development, test and staging environments.
+- [ ] Establish CI checks and test strategy before feature delivery.
 
 ## Exit criteria
-Phase 0 is complete only when the production branch/runtime and live database have been identified, the schema has been inspected read-only, and a compatibility/risk report exists. Stack selection and implementation decisions that depend on this evidence remain open until then.
+Phase 0 ends when requirements are traceable, the architecture and security boundaries are documented, the core data model is reviewed, and the first vertical slice can be implemented without depending on any legacy system.
