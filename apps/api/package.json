@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "db:validate": "prisma validate",
     "db:generate": "prisma generate",
-    "test": "node --test dist/health.controller.spec.js dist/security/permissions.guard.spec.js"
+    "test": "tsc --project tsconfig.json --outDir dist-test && node --test dist-test/health.controller.spec.js dist-test/security/permissions.guard.spec.js"
   },
   "dependencies": {
     "@nestjs/common": "^12.3.0",
