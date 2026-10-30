@@ -38,7 +38,7 @@ jobs:
           DATABASE_URL: postgresql://atsh_dev:placeholder@127.0.0.1:5432/atsh_ai_dev?schema=public
         run: |
           mkdir -p prisma/migrations/0_init
-          ./node_modules/.bin/prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script > prisma/migrations/0_init/migration.sql
+          ../../node_modules/.bin/prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script > prisma/migrations/0_init/migration.sql
           test -s prisma/migrations/0_init/migration.sql
       - name: Upload baseline migration preview for review
         uses: actions/upload-artifact@v4
