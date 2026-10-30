@@ -87,3 +87,12 @@
 - Decision-register commit: `db749f2baeb5f2a62b9ff30610a47f5f0769f086`.
 - **Design only:** no domain UI routes, Prisma models, migrations, persistence APIs, registrar integration, DNS mutation or n8n workflows have been implemented or tested. No registrar/provider was selected.
 - Before implementation: reconcile the proposed domain entities with existing Customer/Package/Contract/Invoice/HostedService/AuditEvent models; finalize open registrar, TLD, renewal, DNS and registrant-data policies; then implement the vertical slice with tests. Do not provision or migrate a database as part of this specification-only change.
+
+
+## Domain module addendum — live search and in-platform registration
+
+- Owner clarified that domain availability must be searched live from ATSH screens and the customer must be able to complete the standard registration purchase inside ATSH screens.
+- Updated `docs/domains/DOMAIN_MANAGEMENT_SPEC.md` to v1.1: live provider-backed availability lookup, timestamped results, supported-TLD coverage, explicit available/unavailable/premium/indeterminate/error states, quote and renewal disclosure, customer registrant authorization, payment gate, fresh recheck, server-to-server registrar registration, and verified outcome states.
+- Registrar selection is now explicitly blocked on a provider API supporting live availability and server-side registration for the required TLDs. Registrar storefront redirect does not satisfy the requirement.
+- Specification update commit: `bcd5b2d6cfee3fedb4bd841777a4b6b0cb2fcc48`.
+- **Design only:** live search and in-platform purchase are mandatory requirements, not implemented/verified capabilities. Provider, payment integration, supported TLD coverage and registry-specific exceptions remain open.
