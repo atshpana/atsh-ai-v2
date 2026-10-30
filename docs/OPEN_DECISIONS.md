@@ -23,13 +23,15 @@ Only decisions not explicitly made by the owner remain open. A technical recomme
 | CI/CD | GitHub Actions | 30 October 2026 |
 | Domain package policy | `both`: some eligible packages may include a domain entitlement; other domains are separately priced add-ons | 30 October 2026 |
 | Domain ownership and management | `client`: customer is the registrant/legal owner; ATSH manages registration, DNS and renewals only under recorded customer authorization | 30 October 2026 |
+| Internal staff authentication direction | Use a managed identity/sign-in service rather than building and operating ATSH-owned password authentication; provider/vendor selection and integration details remain open | 31 October 2026 |
 
 ## Still open
 | Decision | Current status | Required evidence or approval |
 |---|---|---|
 | PostgreSQL hosting provider/region | Open | Availability, backup, security, latency and cost assessment |
 | Application hosting and runtime topology | Open | Capacity, isolation, deployment and operating-cost assessment |
-| Authentication/session implementation | Open | Threat model, provider/session design and server-populated principal |
+| Managed identity provider for internal staff | Direction approved; provider/vendor and exact integration/session configuration remain open | Compare security, MFA, staff lifecycle, auditability, regional availability and cost; owner selects provider |
+| Customer portal authentication/session | Open; not covered by the staff sign-in approval | Decide whether to use the same managed provider/tenant or a separate customer identity boundary; define customer MFA and recovery policy |
 | Quote customer decision persistence | Design proposed; implementation blocked | Review decision/change-request schema, generate a complete initial migration, implement idempotency, immutable sent-version enforcement and transactional audit path |
 | File/object storage provider | Open | Privacy, durability, access controls and cost |
 | Email/notification provider | Open | Deliverability, regional support and owner approval |
