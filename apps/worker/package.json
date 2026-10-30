@@ -1,0 +1,8 @@
+{
+  "name": "@atsh/worker",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": { "start": "node dist/main.js", "typecheck": "tsc --noEmit" },
+  "dependencies": {},
+  "devDependencies": { "@types/node": "^22.18.0", "typescript": "^5.9.2" }
+}
