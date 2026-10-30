@@ -3,7 +3,7 @@
 - Updated: 30 October 2026 (customer workspace implementation pass)
 - Repository: atshpana/atsh-ai-v2
 - Branch: implementation/bootstrap
-- Latest confirmed implementation commits: `aea93c42cbf1078421e3569152508fd8e83f962c` (customer route) and `906bd63a908b143663f1861086f3e170d03443a2` (customer styles).
+- Latest confirmed commit: `7081ffbc1216ed8f55dcae80227ff13b34d09510` (implementation status update).
 
 ## Confirmed owner decisions
 - Full greenfield rebuild; legacy code and legacy database excluded.
@@ -51,7 +51,7 @@
 - Project/workflow/AI/support/hosting/finance/content/media/notification models remain to be designed and added.
 - No production/staging environment or deployment exists.
 - UI shells are initial scaffolds, not complete reference-matched screens; the owner command center and request-operations screen have received their first substantive layout passes, but no measured screenshot comparison has been performed.
-- Health endpoint and permission-guard unit tests are authored and compiled separately by the test script, but have not run; no automated browser or full security integration suite has been implemented.
+- Health endpoint and permission-guard unit tests passed in the CI run for commit `a069a32dffb4d0b60482d17a07fdbbfc21d34a3f`; the new customer UI has no dedicated browser tests yet, and no full security integration suite has been implemented.
 
 ## Next actions
 1. Verify the push-triggered GitHub Actions run for the latest implementation commit; correct dependency/schema/compile failures and commit a reproducible lockfile.
