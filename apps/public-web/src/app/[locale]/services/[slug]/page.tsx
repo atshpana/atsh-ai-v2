@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPublicService, getPublicServices, type SiteLocale } from "../../service-catalog";
+import { getPublicService, getPublicServices, type SiteLocale } from "../../../service-catalog";
 
 const ui = {
   ar: { back:"كل الخدمات", eyebrow:"ATSH AI / SERVICE DETAIL", benefits:"القيمة التي يقدمها الحل", scope:"نطاق العمل", deliverables:"المخرجات المتوقعة", quote:"تحديد النطاق وعرض السعر", quoteText:"لا نعرض سعرًا ثابتًا أو تقديرًا غير معتمد هنا. يتم تحديد الخيارات والنطاق التجاري بعد مراجعة احتياج المشروع وقواعد التسعير المعتمدة.", contact:"ناقش احتياجك", related:"خدمات ذات صلة", note:"تختلف التفاصيل النهائية بحسب المتطلبات والاتفاق المعتمد." },
