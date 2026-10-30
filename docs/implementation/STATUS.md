@@ -186,3 +186,16 @@
 - **Traceability only:** no API endpoints, schema, role assignments, permission seeds, UI behavior or business mutations were added.
 - CI for the preceding documentation batch: CI run `41134604857` and CodeQL run `41134604956` completed successfully. CI runs `41134785940`, `41134798782` and current branch-head run `41134802856` were still in progress at last inspection; CodeQL run `41134798804` was cancelled by a newer push and `41134802961` was pending. Verify current head checks before marking this traceability batch as CI-verified.
 - Next: inspect the admin route tree and current frontend navigation implementation, then produce a page-by-page acceptance/evidence checklist and prioritize connected implementation only after identity/ownership and API contracts are approved.
+
+
+## Admin UI route and acceptance inspection — 30 October 2026
+
+- Inspected the actual admin route tree and source components: dedicated owner home, customer directory, request inbox, request detail, and shared `/[module]` landing page.
+- Confirmed the navigation exposes 15 workspace areas, but most destinations currently resolve to a generic scope/placeholder page rather than a domain-specific operational screen.
+- Confirmed the request detail route displays the path identifier but does not query the database; actions remain disabled and customer data is not fabricated.
+- Added `docs/admin/ADMIN_UI_ROUTE_ACCEPTANCE_CHECKLIST.md` with route inventory, ADM screen acceptance checks, module-by-module blockers, navigation/accessibility checks, evidence requirements and truthful implementation status.
+- UI classification from source inspection: owner command center, customer directory, request inbox and request detail are **Implemented — unverified** scaffolds; remaining workspace modules are generic design/scaffold pages; no browser E2E, screenshot comparison or staging verification was performed.
+- Checklist commit: `c8f640ac37f342df49c6ff943a76a8ac70e76c4e`.
+- No UI code, API, schema, permission, deployment or business data changed.
+- CI for the prior traceability/status commits was still running at last inspection: run `41134957050` for commit `62ff30c67102418b31fa07bfeaf6b997e760af03` and run `41134944796` for commit `2ca5ccb639e808619afcd39cf3cd04b8be96d506`; verify the latest checklist/status commit runs before claiming CI verification.
+- Next implementation priority: make identity/session and ownership decisions explicit, then build the first connected vertical slice for request inbox/detail (read-only first, scoped queries and isolation tests) before enabling mutations.
