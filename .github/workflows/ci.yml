@@ -23,6 +23,14 @@ jobs:
         run: node --version && npm --version
       - name: Install dependencies
         run: npm install
+      - name: Validate Prisma schema
+        env:
+          DATABASE_URL: postgresql://atsh_dev:placeholder@127.0.0.1:5432/atsh_ai_dev?schema=public
+        run: npm run db:validate --workspace @atsh/api
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: postgresql://atsh_dev:placeholder@127.0.0.1:5432/atsh_ai_dev?schema=public
+        run: npm run db:generate --workspace @atsh/api
       - name: Typecheck
         run: npm run typecheck
       - name: Build
