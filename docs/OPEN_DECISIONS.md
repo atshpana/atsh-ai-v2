@@ -1,6 +1,6 @@
 # Open Decisions
 
-Only decisions not explicitly made by the owner remain open. A recommendation is not an approval unless the owner accepts it.
+Only decisions not explicitly made by the owner remain open. A technical recommendation is not an approval unless the owner accepts it.
 
 ## Decisions already made
 | Decision | Approved scope | Date |
@@ -11,21 +11,32 @@ Only decisions not explicitly made by the owner remain open. A recommendation is
 | Repository visibility | Public | 30 October 2026 |
 | Public website languages | Arabic and English; visitor language switcher; RTL Arabic and LTR English | 30 October 2026 |
 | Internal administration dashboard language | Arabic only in the current scope | 30 October 2026 |
+| Frontend framework | Next.js App Router | 30 October 2026 |
+| Backend framework | NestJS | 30 October 2026 |
+| Application language | TypeScript | 30 October 2026 |
+| Monorepo approach | TypeScript monorepo | 30 October 2026 |
+| Backend topology | Modular monolith first; no premature microservices | 30 October 2026 |
+| New database engine | PostgreSQL, independently provisioned | 30 October 2026 |
+| ORM/data access | Prisma with reviewed SQL when needed | 30 October 2026 |
+| Background work | Dedicated worker process; Redis/BullMQ only when justified | 30 October 2026 |
+| Test approach | Unit, API integration and Playwright E2E | 30 October 2026 |
+| CI/CD | GitHub Actions | 30 October 2026 |
 
 ## Still open
 | Decision | Current status | Required evidence or approval |
 |---|---|---|
-| Application stack | Recommendation to be reviewed | Architecture ADR and owner ratification |
-| New database provider/hosting | Open | Availability, backup, security, latency and cost assessment |
+| PostgreSQL hosting provider/region | Open | Availability, backup, security, latency and cost assessment |
+| Application hosting and runtime topology | Open | Capacity, isolation, deployment and operating-cost assessment |
 | Authentication/session implementation | Open | Threat model and security design |
 | File/object storage provider | Open | Privacy, durability, access controls and cost |
 | Email/notification provider | Open | Deliverability, regional support and owner approval |
 | AI providers/models and budgets | Open | Workload tests, data policy, limits and cost controls |
 | n8n deployment/license boundary | Open | Internal orchestration versus customer-facing workflow service |
-| Staging and production hosting | Open | Capacity, isolation, backup/restore and operating cost |
+| Redis/BullMQ activation | Conditional / not yet required | Demonstrated queue, retry or scheduling workload |
 | Customer portal language | Open | Explicit owner decision |
 | Payment provider, tax, prices and contract rules | Open | Commercial/legal approval |
 | Exact production rollout timing | Open | Explicit owner approval after staging acceptance |
+| Monorepo package manager/build orchestration | Implementation detail to settle during bootstrap | CI compatibility and maintainability review |
 
 ## Approval rule
 Record every newly approved decision with date, scope, impact and affected requirements. Do not infer an open decision from a technical recommendation.
