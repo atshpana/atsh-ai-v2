@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import HomePage from "../home-page";
 
 const localeMetadata = {
@@ -21,7 +22,6 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function LocalizedHomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (locale !== "ar" && locale !== "en") {
-    const { notFound } = await import("next/navigation");
     notFound();
   }
   return <HomePage />;
