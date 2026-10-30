@@ -9,8 +9,7 @@
     "dev:portal": "npm run dev --workspace @atsh/customer-portal",
     "dev:api": "npm run start:dev --workspace @atsh/api",
     "build": "npm run build --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present"
   },
-  "engines": { "node": ">=22.0.0", "npm": ">=10.0.0" }
+  "engines": { "node": ">=22.22.3", "npm": ">=10.0.0" }
 }
