@@ -1,9 +1,9 @@
 # Implementation Status
 
-- Updated: 30 October 2026 (public configurator and cart contract)
+- Updated: 30 October 2026 (Prisma baseline migration preview pipeline)
 - Repository: atshpana/atsh-ai-v2
 - Branch: implementation/bootstrap
-- Latest branch HEAD before this status update: `6c40f59dd80ad4a5120412f80377d4d1d49bf2a3` (linked public configurator/cart contract into the API inventory).
+- Latest changes include the quote decision schema and contract, customer quote-review UI, public configurator/cart contract, and a CI-only Prisma baseline migration preview artifact. Check the branch commit history for the current HEAD.
 
 ## Confirmed owner decisions
 - Full greenfield rebuild; legacy code and legacy database excluded.
@@ -33,7 +33,7 @@
 - Added the first dedicated request-operations screen at `/requests`: truthful unconnected-data state, source-bound KPI placeholders, request inbox table structure, reference lifecycle stages, review checklist and links to catalog operations. Responsive styles included; no mock customer/order records or live mutations are exposed.
 - Added the dedicated customer directory at `/customers`: data-model-aligned customer field inventory, KPI source definitions, directory table and Customer 360 section map, disabled actions while APIs/authentication are absent, and explicit unconnected-data state. No mock customer records or live mutations are exposed.
 - Extended the Prisma draft with `QuoteDecision` (accept/decline, one terminal decision per quote, unique idempotency key) and `QuoteChangeRequest` (separate customer change-request lifecycle). Schema only; no database migration or persistence API exists yet.\n- Added `docs/quotes/QUOTE_CUSTOMER_DECISION_CONTRACT.md`: proposed customer decision API, authorization invariants, transaction/concurrency/idempotency requirements, customer-safe DTO boundary, schema gaps and acceptance criteria. Design only; no decision endpoint is enabled.\n- Added a customer-facing quote review route at `/quotes/[quoteId]`: responsive quote details, itemized-scope placeholder, commercial summary, terms/delivery area and accept/request-change controls disabled pending authentication and server-side acceptance verification. No customer or quote data is fabricated.\n- Added a quote-review and customer-preview scaffold at `/requests/[requestId]/quotes/[quoteId]`: immutable-version summary, customer-facing preview boundary, internal approval checklist, version-history state and disabled lifecycle controls.
-- Added a quote-editor scaffold at `/requests/[requestId]/quotes/new`: version identity, quote line-item table, commercial summary, terms/delivery areas, version governance and disabled actions. It follows the existing Quote/QuoteItem/QuoteAcceptance Prisma model; no price, currency, tax, customer or request values are fabricated.
+- Added a quote-editor scaffold at `/requests/[requestId]/quotes/new`: version identity, quote line-item table, commercial summary, terms/delivery areas, version governance and disabled actions. It follows the Quote/QuoteItem Prisma model; no price, currency, tax, customer or request values are fabricated.
 - Added a request-review detail route at `/requests/[requestId]` with the source-defined ADM-11 structure: overview, immutable request/price snapshot, quote-version history, event timeline, review checklist, disabled controlled actions and lifecycle gates. The route identifier is treated as untrusted input; no request/customer data is exposed without server-side lookup and authorization.
 - Customer portal now includes a branded quote-review experience; identity, quote lookup, customer ownership checks, secure acceptance/rejection and notifications remain unimplemented.
 - NestJS API bootstrap and health endpoint.
@@ -53,12 +53,12 @@
 - API unit tests added for the health controller and deny-by-default permission guard.
 
 ## Not yet completed or verified
-- CI for the first service-catalogue/detail commits exposed a TypeScript import-path error; the import was corrected in a follow-up commit. The current CI run for `2678730be8c6085c1fb4ff0ebcd28e89a8a7f685` has passed TypeScript typecheck and is running the build; unit tests have not yet started. Do not mark this batch fully verified until the run concludes.
+- The quote-decision Prisma schema, customer decision contract, open-decision register and implementation status commits all completed GitHub Actions CI successfully. The corresponding checks include Prisma validation/generation, typecheck, build and unit tests.
 - No clean install or lockfile committed.
-- The CI run for commit `a069a32dffb4d0b60482d17a07fdbbfc21d34a3f` completed successfully, including dependency installation, Prisma validation/generation, TypeScript typecheck, build and unit tests. CI for the quote-editor scaffold through commit `83cfbeac779cd138340c9861ed639c2012dc4b65` completed successfully. Later quote-review UI and localized public-routing commits are still running/queued and are not yet verified.
+- Earlier CI runs for the API bootstrap and quote-editor scaffold completed successfully. Verify each later UI batch against its own workflow run before describing it as verified.
 - Local execution is blocked by the current container Node version (22.16.0), below the selected Node 22.22.3 baseline; external network access is unavailable in this environment.
 - No PostgreSQL database provisioned or connected.
-- No migration generated or applied.
+- No migration has been committed or applied. CI now generates a complete `from-empty` SQL preview from the full Prisma schema and uploads it as a short-lived review artifact; it is not applied and must be inspected before committing a baseline migration.
 - No authentication/session implementation, request-principal population, database-backed permission resolution, business APIs or persistence services are complete.
 - Project/workflow/AI/support/hosting/finance/content/media/notification models remain to be designed and added.
 - No production/staging environment or deployment exists.
@@ -66,8 +66,8 @@
 - Health endpoint and permission-guard unit tests passed in the CI run for commit `a069a32dffb4d0b60482d17a07fdbbfc21d34a3f`; the new customer UI has no dedicated browser tests yet, and no full security integration suite has been implemented.
 
 ## Next actions
-1. Verify the current CI run and all service-catalogue/detail and customer quote-review workflows; correct failures before expanding the public purchase flow.
-2. Complete the catalog/configurator persistence design and review option dependency/conflict rules against the reference before extending Prisma; no migration or database connection without owner-approved provider and isolated environment.
+1. Verify the CI-generated baseline SQL preview artifact; review table/constraint ordering, PostgreSQL types, indexes, foreign keys and destructive operations, then commit the reviewed `0_init` migration. Do not apply it to any shared or production database.
+2. Build a reproducible clean-database migration test using an isolated ephemeral PostgreSQL service in CI; verify `migrate deploy` from empty state and Prisma client generation. Do not connect a shared or production database.
 3. Implement the server-side pricing module and tests against `docs/api/PUBLIC_CONFIGURATOR_CART_CONTRACT.md`; keep prices and taxes disabled until approved commercial rules exist.
 4. Implement cart ownership/session, server-side revalidation, price-change confirmation and idempotent request submission only after authentication/session, persistence and API integration tests are ready.
 5. Complete browser verification for locale routes and service listing/details: `/` redirect, Arabic RTL, English LTR, search/filter/empty states, detail links and alternate-language metadata.
