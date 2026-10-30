@@ -96,3 +96,13 @@
 - Registrar selection is now explicitly blocked on a provider API supporting live availability and server-side registration for the required TLDs. Registrar storefront redirect does not satisfy the requirement.
 - Specification update commit: `bcd5b2d6cfee3fedb4bd841777a4b6b0cb2fcc48`.
 - **Design only:** live search and in-platform purchase are mandatory requirements, not implemented/verified capabilities. Provider, payment integration, supported TLD coverage and registry-specific exceptions remain open.
+
+
+## Prisma baseline SQL review — 30 October 2026
+
+- GitHub Actions run `41132485355` for source commit `dc08f488bfe53c29073a0127f95056c46ec535b0` completed successfully: dependency installation, Prisma validation/generation, migration-preview generation, artifact upload, typecheck, build and unit tests all passed.
+- Downloaded artifact `prisma-baseline-migration-preview` (artifact `13012818964`) and verified that its ZIP contains a single pure PostgreSQL `migration.sql` file (21,182 bytes; 575 lines), with no npm banner contamination.
+- Static inventory: 10 enum types, 24 tables, 42 indexes and 30 foreign keys; no DROP/TRUNCATE/DELETE statements detected.
+- Added `docs/data/PRISMA_BASELINE_SQL_REVIEW.md` with findings and required follow-up: database CHECK constraints for quantities/monetary values, explicit decision on `pricing_versions.approved_by_id` relation, temporal/lifecycle invariants, transaction-level quote decision and customer ownership checks, and broader model completeness.
+- **Not approved for baseline application:** do not commit as `0_init` or apply. The current schema is still an incomplete draft relative to the full ATSH scope. Reconcile domain/project/contract/invoice/hosting/workflow/AI/support/finance/content/notification models, resolve review findings, regenerate SQL, then run an isolated PostgreSQL migration test in CI.
+- No PostgreSQL database was provisioned or connected; no migration was applied.
