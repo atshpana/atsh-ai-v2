@@ -148,3 +148,15 @@
 - No Prisma schema, migration, database, authentication provider, runtime authorization behavior or production resource was changed.
 - **Important status correction:** the historical note that run `41132838966` applied a draft to ephemeral PostgreSQL describes an earlier workflow state. The current workflow has since been changed to preview-only as recorded in the Baseline gate correction. Current HEAD run `41133219862` does not prove a PostgreSQL migration-deploy test.
 - Next: obtain an explicit account-model decision and authentication/session ownership decision; then implement the foundational identity/organization/grant schema and tests in a separate change. Keep the durable baseline blocked pending full-scope reconciliation and owner approval.
+
+
+## Commercial intake data design — 30 October 2026
+
+- Added `docs/data/COMMERCIAL_INTAKE_DATA_DESIGN.md` as a detailed, provider-neutral design proposal for package/version composition, immutable configurator definitions, request answers, server-authoritative price-calculation evidence, cart lifecycle and atomic request submission.
+- The design reuses the existing service catalogue, pricing, request snapshots/events and quote records; it does not duplicate those models.
+- Specified candidate fields, unique constraints, CHECK constraints, indexes, immutable publication rules, ownership controls, idempotency scope, concurrency behavior and transaction acceptance gates.
+- Explicitly blocked cart ownership/API implementation on the unresolved Customer-versus-Organization account model and authentication/session/anonymous-cart decisions. Currency, rounding, discounts, taxes, recurring terms and price-binding semantics remain open.
+- Design commit: `b2a34a153206104026ddb4f7e4620995f12f51e7`.
+- **Design only:** no Prisma schema, migration, database, pricing runtime, cart API, payment behavior or customer-facing checkout was changed or enabled.
+- CI runs `41134492195` and `41134478802` were still in progress at the last inspection; earlier completed runs `41133806561` and `41133801712` succeeded. Verify the latest branch-head run before marking this design/status batch as CI-verified.
+- Next: resolve the account-model and authentication/session decisions before any cart ownership schema. Meanwhile, continue a source-traceable specification of the package/configurator publication workflow and admin review controls; do not invent commercial rules.
