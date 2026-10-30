@@ -27,7 +27,7 @@ Only decisions not explicitly made by the owner remain open. A technical recomme
 |---|---|---|
 | PostgreSQL hosting provider/region | Open | Availability, backup, security, latency and cost assessment |
 | Application hosting and runtime topology | Open | Capacity, isolation, deployment and operating-cost assessment |
-| Authentication/session implementation | Open | Threat model, provider/session design and server-populated principal |\n| Quote customer decision persistence | Design proposed; implementation blocked | Approve decision/change-request model, idempotency, immutable sent-version enforcement and transactional audit path |
+| Authentication/session implementation | Open | Threat model, provider/session design and server-populated principal |\n| Quote customer decision persistence | Design proposed; implementation blocked | Review decision/change-request schema, generate a complete initial migration, implement idempotency, immutable sent-version enforcement and transactional audit path |
 | File/object storage provider | Open | Privacy, durability, access controls and cost |
 | Email/notification provider | Open | Deliverability, regional support and owner approval |
 | AI providers/models and budgets | Open | Workload tests, data policy, limits and cost controls |
