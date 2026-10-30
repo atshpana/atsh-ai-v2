@@ -58,7 +58,7 @@
 - Earlier CI runs for the API bootstrap and quote-editor scaffold completed successfully. Verify each later UI batch against its own workflow run before describing it as verified.
 - Local execution is blocked by the current container Node version (22.16.0), below the selected Node 22.22.3 baseline; external network access is unavailable in this environment.
 - No PostgreSQL database provisioned or connected.
-- No migration has been committed or applied. The first successful artifact review exposed npm lifecycle banner text contaminating the SQL output; the CI command was corrected to invoke the local Prisma CLI directly. Re-run CI and inspect the regenerated pure-SQL artifact before committing the baseline migration.
+- No migration has been committed or applied. Artifact review showed npm lifecycle banner text because the inspected artifact predated the direct CLI invocation. The subsequent CI attempt failed because the Prisma binary was referenced relative to `apps/api`, while dependencies are installed at the monorepo root. The workflow now resolves the CLI at `../../node_modules/.bin/prisma`; this correction is committed and awaiting its own CI result and artifact inspection.
 - No authentication/session implementation, request-principal population, database-backed permission resolution, business APIs or persistence services are complete.
 - Project/workflow/AI/support/hosting/finance/content/media/notification models remain to be designed and added.
 - No production/staging environment or deployment exists.
@@ -66,7 +66,7 @@
 - Health endpoint and permission-guard unit tests passed in the CI run for commit `a069a32dffb4d0b60482d17a07fdbbfc21d34a3f`; the new customer UI has no dedicated browser tests yet, and no full security integration suite has been implemented.
 
 ## Next actions
-1. Re-run CI after the SQL-output correction; verify the artifact begins with Prisma SQL comments (not npm output), then review table/constraint ordering, PostgreSQL types, indexes, foreign keys and destructive operations before committing `0_init`. Do not apply it to any shared or production database.
+1. Verify CI for commit `83c6f2a455677976751e042e66ad043f84efe7ee`; inspect its newly generated artifact to confirm it contains pure SQL, then review PostgreSQL types, defaults, indexes, foreign keys and delete behaviors before committing `0_init`. Do not apply it to any shared or production database.
 2. Build a reproducible clean-database migration test using an isolated ephemeral PostgreSQL service in CI; verify `migrate deploy` from empty state and Prisma client generation. Do not connect a shared or production database.
 3. Implement the server-side pricing module and tests against `docs/api/PUBLIC_CONFIGURATOR_CART_CONTRACT.md`; keep prices and taxes disabled until approved commercial rules exist.
 4. Implement cart ownership/session, server-side revalidation, price-change confirmation and idempotent request submission only after authentication/session, persistence and API integration tests are ready.
