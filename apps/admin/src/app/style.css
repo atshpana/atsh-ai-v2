@@ -308,3 +308,14 @@ button,input{font:inherit}
 .quote-terms{margin-top:5px}
 @media(max-width:1050px){.quote-editor-layout{grid-template-columns:minmax(0,1fr)}.quote-editor-side{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.quote-field-grid,.quote-editor-side{grid-template-columns:minmax(0,1fr)}.quote-editor-alert{font-size:10px}.quote-section{padding:14px}.quote-disabled-row{align-items:flex-start;flex-direction:column}}
+
+
+/* Quote review and customer-preview scaffold */
+.quote-preview-paper{padding:20px;border:1px solid #e8ecef;border-radius:9px;background:#fff}
+.quote-preview-brand{display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid #edf0f2}
+.quote-preview-brand b{font:700 17px "DM Sans",sans-serif;letter-spacing:.12em;color:#273541}
+.quote-preview-brand span{font-size:10px;color:#78858e}
+.quote-preview-paper .request-detail-empty{min-height:170px}
+.quote-preview-foot{padding-top:12px;border-top:1px solid #edf0f2;color:#9aa4ac;font-size:9px}
+.quote-check-pending{margin-right:auto;white-space:nowrap;color:#a17a43;background:#fbf5eb;border:1px solid #f0e4d0;border-radius:20px;padding:4px 8px;font-size:9px}
+@media(max-width:650px){.quote-preview-brand{align-items:flex-start;gap:8px;flex-direction:column}.quote-check-pending{margin:7px 0 0 0}}
