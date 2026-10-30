@@ -1,9 +1,9 @@
 # Implementation Status
 
-- Updated: 30 October 2026 (baseline SQL preview output correction)
+- Updated: 30 October 2026 (approved domain module specification baseline)
 - Repository: atshpana/atsh-ai-v2
 - Branch: implementation/bootstrap
-- Latest changes include the quote decision schema and contract, customer quote-review UI, public configurator/cart contract, and a CI-only Prisma baseline migration preview artifact. Check the branch commit history for the current HEAD.
+- Latest changes include the approved domain module specification and decision register, alongside the previously recorded quote/configurator work. Check the branch commit history for the current HEAD.
 
 ## Confirmed owner decisions
 - Full greenfield rebuild; legacy code and legacy database excluded.
