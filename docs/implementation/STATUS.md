@@ -173,3 +173,16 @@
 - **Design only:** no Prisma models, migrations, UI, APIs, RBAC seeds, publication, pricing activation or customer-facing commerce behavior were changed or enabled.
 - Latest CI run for the preceding status commit `973ce0c5b750682a46acfb4c5e69a6dd99ef86f2` was `41134604857` and was in progress at inspection; CodeQL run `41134604956` was also in progress. New documentation commit will trigger a fresh run; verify its final result before treating this batch as CI-verified.
 - Next: map the candidate permission keys against the actual current RBAC schema and existing guard implementation, then create a concrete screen/API/permission/test traceability matrix. Do not seed new permissions or alter schema until the owner-approved role matrix and identity decisions are settled.
+
+
+## Screen/API/permission/data/test traceability — 30 October 2026
+
+- Added `docs/traceability/SCREEN_API_PERMISSION_DATA_TEST_MATRIX.md`.
+- Mapped ADM-01..20 and the main public commerce journey to proposed API operations, current Prisma data dependencies, candidate permission keys and required positive/negative/edge tests.
+- Distinguished verified repository artifacts from proposed/not-yet-implemented business APIs. In particular, the current NestJS guard is deny-by-default and checks `request.user.permissions`, but the inspected API source does not yet establish trusted authentication or principal population; it is not a complete auth system.
+- Confirmed generic permission guard/decorator unit tests exist. They do not prove database-backed permission resolution, ownership isolation or protected business API behavior.
+- Identified current model coverage and gaps for CMS, configurator versioning, cart, organization membership, sessions, publication history, exports, finance and other modules.
+- Matrix commit: `2ca5ccb639e808619afcd39cf3cd04b8be96d506`.
+- **Traceability only:** no API endpoints, schema, role assignments, permission seeds, UI behavior or business mutations were added.
+- CI for the preceding documentation batch: CI run `41134604857` and CodeQL run `41134604956` completed successfully. CI runs `41134785940`, `41134798782` and current branch-head run `41134802856` were still in progress at last inspection; CodeQL run `41134798804` was cancelled by a newer push and `41134802961` was pending. Verify current head checks before marking this traceability batch as CI-verified.
+- Next: inspect the admin route tree and current frontend navigation implementation, then produce a page-by-page acceptance/evidence checklist and prioritize connected implementation only after identity/ownership and API contracts are approved.
