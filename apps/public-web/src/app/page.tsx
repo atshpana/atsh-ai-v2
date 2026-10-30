@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const copy = {
   ar: {
@@ -45,6 +45,11 @@ export default function HomePage() {
   const [locale, setLocale] = useState<"ar" | "en">("ar");
   const t = useMemo(() => copy[locale], [locale]);
   const isArabic = locale === "ar";
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.documentElement.dir = isArabic ? "rtl" : "ltr";
+  }, [locale, isArabic]);
 
   return (
     <main className={isArabic ? "site" : "site site-en"} dir={isArabic ? "rtl" : "ltr"} lang={locale}>
