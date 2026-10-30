@@ -51,12 +51,12 @@ Return only the authorized quote version's customer-facing description, line ite
 
 ## Schema gaps identified
 
-- `QuoteAcceptance` supports acceptance only; there is no equivalent persisted decline or change-request record.
+- The Prisma draft now models one terminal `QuoteDecision` per quote (`ACCEPT` or `DECLINE`) with a unique idempotency key, plus separately persisted `QuoteChangeRequest` records. These models are schema-only until a baseline migration and persistence services exist.
 - `Quote` has a version number and unique request/version pair, but the schema alone does not enforce immutability of sent quote rows/items.
 - The existing `AuditEvent` model can represent decision events, but append-only enforcement and a transactional write path are not implemented.
 - `User.authSubject` exists, but authentication, session validation and population of `request.user` are not implemented. The global permissions guard currently denies protected routes without an injected principal.
 - Customer-to-user linkage exists as an optional unique relation; account-linking and verification rules are not implemented.
-- No idempotency record/model or change-request model is present.
+- Idempotency keys are represented in the draft decision/change-request models; request fingerprinting, replay semantics and service enforcement are not implemented.
 
 ## Acceptance criteria before enabling customer decisions
 
@@ -72,3 +72,8 @@ Return only the authorized quote version's customer-facing description, line ite
 - Explicit human acceptance before staging/production enablement.
 
 Until these gates pass, customer decision controls remain disabled and no quote decision is accepted through the UI.
+
+
+## Schema update (30 October 2026)
+
+The Prisma schema now replaces the acceptance-only record with `QuoteDecision` and adds `QuoteChangeRequest`. Each terminal decision is unique per quote and each command key is unique. This does not implement API behavior or authentication. A migration was not generated because the repository has no initial Prisma migration yet; adding an incremental migration that assumes the core tables already exist would be unsafe. First generate and review a complete baseline migration from the full schema, then apply these structures in that baseline (or a correctly ordered follow-up migration).
