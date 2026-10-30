@@ -32,6 +32,19 @@ jobs:
         env:
           DATABASE_URL: postgresql://atsh_dev:placeholder@127.0.0.1:5432/atsh_ai_dev?schema=public
         run: npm run db:generate --workspace @atsh/api
+      - name: Generate baseline migration preview (not applied)
+        working-directory: apps/api
+        run: |
+          mkdir -p prisma/migrations/0_init
+          npm run db:baseline:preview > prisma/migrations/0_init/migration.sql
+          test -s prisma/migrations/0_init/migration.sql
+      - name: Upload baseline migration preview for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: prisma-baseline-migration-preview
+          path: apps/api/prisma/migrations/0_init/migration.sql
+          if-no-files-found: error
+          retention-days: 7
       - name: Typecheck
         run: npm run typecheck
       - name: Build
