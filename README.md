@@ -30,7 +30,7 @@ This repository is the independent, greenfield implementation of ATSH AI, govern
 ## Current status
 - Greenfield branch: implementation/bootstrap.
 - Initial workspaces exist for public web, admin, customer portal, API and worker.
-- Public website has an initial bilingual UI shell; admin and customer portal have placeholder shells.
+- Public website has an initial bilingual UI shell; admin has a responsive owner command center and 15 workspace areas as UI scaffolds; customer portal remains a placeholder.
 - NestJS API has a bootstrap and health endpoint.
 - Initial PostgreSQL Prisma schema covers identity/RBAC, customer profile, service catalog/options, pricing versions/rules, request snapshots/events, quotes and audit events.
 - Screen/flow catalog, API inventory and logical data model drafts are recorded under docs/.
