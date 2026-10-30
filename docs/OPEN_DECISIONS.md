@@ -27,7 +27,7 @@ Only decisions not explicitly made by the owner remain open. A technical recomme
 |---|---|---|
 | PostgreSQL hosting provider/region | Open | Availability, backup, security, latency and cost assessment |
 | Application hosting and runtime topology | Open | Capacity, isolation, deployment and operating-cost assessment |
-| Authentication/session implementation | Open | Threat model and security design |
+| Authentication/session implementation | Open | Threat model, provider/session design and server-populated principal |\n| Quote customer decision persistence | Design proposed; implementation blocked | Approve decision/change-request model, idempotency, immutable sent-version enforcement and transactional audit path |
 | File/object storage provider | Open | Privacy, durability, access controls and cost |
 | Email/notification provider | Open | Deliverability, regional support and owner approval |
 | AI providers/models and budgets | Open | Workload tests, data policy, limits and cost controls |
@@ -40,3 +40,4 @@ Only decisions not explicitly made by the owner remain open. A technical recomme
 
 ## Approval rule
 Record every newly approved decision with date, scope, impact and affected requirements. Do not infer an open decision from a technical recommendation.
+\n\n## Quote decision implementation boundary\n\nThe proposed customer decision API, security invariants, transaction behavior and current schema gaps are documented in `docs/quotes/QUOTE_CUSTOMER_DECISION_CONTRACT.md`. This is a design artifact, not approval to enable acceptance or decline. The existing schema persists acceptance only; decline/change-request persistence, quote immutability enforcement, authentication and idempotency remain unresolved.\n
