@@ -160,3 +160,16 @@
 - **Design only:** no Prisma schema, migration, database, pricing runtime, cart API, payment behavior or customer-facing checkout was changed or enabled.
 - CI runs `41134492195` and `41134478802` were still in progress at the last inspection; earlier completed runs `41133806561` and `41133801712` succeeded. Verify the latest branch-head run before marking this design/status batch as CI-verified.
 - Next: resolve the account-model and authentication/session decisions before any cart ownership schema. Meanwhile, continue a source-traceable specification of the package/configurator publication workflow and admin review controls; do not invent commercial rules.
+
+
+## Catalogue/configurator administration workflow — 30 October 2026
+
+- Added `docs/admin/CATALOGUE_CONFIGURATOR_PUBLICATION_WORKFLOW.md`.
+- Source-mapped ADM-06/07/08/09/13/15/19 and the public catalogue journey PUB-02..PUB-05 into a unified administration workflow while keeping catalogue, configurator, pricing, CMS and protected settings publication domains distinct.
+- Specified immutable draft/review/approval/publication revisions; package/configurator version binding; scenario testing; localization checks; dependency validation; reviewer/publisher separation; publish/rollback evidence; optimistic concurrency; idempotent retries; cache invalidation and failure states.
+- Added candidate atomic permission keys for future RBAC review only. They are not seeded, approved or enforced.
+- Added proposed screen states and 17 acceptance tests, including cross-version integrity and publication safety.
+- Design commit: `3798482d3363a0dcdc050c2d4704ae675885274e`.
+- **Design only:** no Prisma models, migrations, UI, APIs, RBAC seeds, publication, pricing activation or customer-facing commerce behavior were changed or enabled.
+- Latest CI run for the preceding status commit `973ce0c5b750682a46acfb4c5e69a6dd99ef86f2` was `41134604857` and was in progress at inspection; CodeQL run `41134604956` was also in progress. New documentation commit will trigger a fresh run; verify its final result before treating this batch as CI-verified.
+- Next: map the candidate permission keys against the actual current RBAC schema and existing guard implementation, then create a concrete screen/API/permission/test traceability matrix. Do not seed new permissions or alter schema until the owner-approved role matrix and identity decisions are settled.
