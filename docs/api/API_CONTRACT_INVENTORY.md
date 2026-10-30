@@ -29,6 +29,10 @@
 
 The browser never supplies a trusted total. Every cart update and final submission recalculates on the server.
 
+## 2.1 Public configurator, pricing and cart contract
+
+The detailed draft contract is maintained in [PUBLIC_CONFIGURATOR_CART_CONTRACT.md](./PUBLIC_CONFIGURATOR_CART_CONTRACT.md). It defines the versioned public configurator schema, server-authoritative pricing result, cart ownership and revalidation rules, price-change confirmation, idempotent request-submission boundary, error envelope and acceptance tests. The contract is design-only: no configurator, pricing, cart or order mutation endpoint is currently enabled.
+
 ## 3. Request and quote APIs
 
 | Method | Route | Purpose | Security / behavior |
