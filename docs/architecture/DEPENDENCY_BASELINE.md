@@ -1,31 +1,34 @@
 # Dependency Baseline — 30 October 2026
 
-This document records the versions selected for the first implementation bootstrap. Recheck official release/security notes before each dependency update and commit a lockfile after a clean install.
+This records the initial dependency baseline chosen from release information available on 30 October 2026. Recheck official release/security notes before updates and commit a lockfile after a clean install.
 
 | Package | Selected baseline | Reason |
 |---|---|---|
-| Node.js | 22.22.3 | Meets Nest 12 application and CLI/schematics requirements |
-| Next.js | 16.4.3 | Stable release; includes security fixes published in October 2026 |
-| React / React DOM | 19.3.1 | Current stable React line |
+| Node.js | 22.22.3 | Meets Nest 12 CLI/schematics and runtime requirements |
+| Next.js | 16.4.3 | Stable release; October 2026 security fixes included |
+| React / React DOM | 19.3.1 | Current stable React release line |
 | NestJS core packages | 12.3.0 | Current stable NestJS 12 release |
 | Nest CLI / schematics | 12.0.11 | Nest 12-compatible tooling |
-| TypeScript | 6.0.3 | Nest 12 schematics require TypeScript 6 |
-| Prisma ORM | 7.10.1 planned | Stable Prisma 7 line; Prisma 8 is still release-candidate status on this date |
+| TypeScript | 6.0.3 | Required by Nest 12 schematics |
+| Prisma CLI / Client / PostgreSQL adapter | 7.10.1 | Stable Prisma 7 line; Prisma 8 remains release-candidate status |
 
 ## Compatibility notes
-- NestJS 12 core packages are ESM-only. CommonJS applications can still consume them through Node's `require(esm)` support, provided the supported Node version is used. The current API bootstrap remains CommonJS for now; switching to ESM is optional and can be done deliberately.
-- NestJS 12's CLI/schematics require a newer Node 22 patch line than the framework runtime alone. CI therefore pins Node 22.22.3.
-- Prisma 8 is not selected while it remains a release candidate. The planned Prisma integration will use the stable Prisma 7 client/CLI pair and follow the Prisma 7 setup model.
-- Exact dependency resolution must be frozen in `package-lock.json` after a successful clean install. No lockfile has been committed yet.
+- NestJS 12 core packages are ESM-only. This new API workspace is configured as ESM using NodeNext module resolution and explicit .js relative imports.
+- NestJS 12 CLI/schematics require Node 22.22.3 or later on the Node 22 line. CI pins 22.22.3.
+- Prisma 7 uses the prisma-client generator with an explicit output path, prisma.config.ts for the datasource URL, and a PostgreSQL driver adapter. The API workspace is ESM-compatible.
+- Prisma 8 is not selected while it remains a release candidate.
+- The PostgreSQL provider/host remains open. The pg adapter is a driver choice, not a hosting-provider decision.
+- Exact dependency resolution must be frozen in package-lock.json after a successful clean install. No lockfile has been committed yet.
 
 ## Official sources checked
 - Next.js release history: https://nextjs-changelog.vercel.app/
 - Next.js GitHub releases: https://github.com/vercel/next.js/releases/
 - NestJS releases: https://github.com/nestjs/nest/releases
-- NestJS migration guide: https://docs.nestjs.com/migration-guide
-- React version/release information: https://react.dev/versions
+- NestJS v12 migration guide: https://docs.nestjs.com/migration-guide
+- React versions: https://react.dev/versions
 - Prisma ORM release status: https://www.prisma.io/docs/orm/release-status
-- Prisma ORM changelog: https://www.prisma.io/changelog
+- Prisma ORM v7 generators: https://www.prisma.io/docs/orm/v7/prisma-schema/overview/generators
+- Prisma ORM v7 client setup: https://www.prisma.io/docs/orm/v7/prisma-client/setup-and-configuration/introduction
 
 ## Verification status
-These versions were selected from published release information, but package installation, dependency resolution, compilation and runtime tests have not yet been executed in a clean environment. Do not label them verified until CI passes.
+Dependency ranges are recorded in the workspace manifests. Package installation, dependency resolution, Prisma schema validation, code generation, compilation and runtime/browser tests have not yet been executed in a clean environment. Do not label the stack verified until CI passes.
