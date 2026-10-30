@@ -3,7 +3,7 @@
 - Updated: 30 October 2026 (localized public homepage routes)
 - Repository: atshpana/atsh-ai-v2
 - Branch: implementation/bootstrap
-- Latest implementation commits: `eaf121046479a2358b44166c82558dd37496d078` (quote editor route) and `02d4bb70d13bbb5d4d252d8a903b2a85fe0ca6b6` (quote editor styles).
+- Latest branch HEAD: `a1892d0b846d788bc12a9fdc55854f8fd69cae78` (localized public homepage routing documentation). Recent related commits include `0bf14ac9c80781d9562c4abad94a2e05ea992ffe` (Next.js Proxy routing) and `edc62f9e5ab8e1b646f4add73575b5ae8246794f` (locale route validation).
 
 ## Confirmed owner decisions
 - Full greenfield rebuild; legacy code and legacy database excluded.
@@ -51,7 +51,7 @@
 
 ## Not yet completed or verified
 - No clean install or lockfile committed.
-- The CI run for commit `a069a32dffb4d0b60482d17a07fdbbfc21d34a3f` completed successfully, including dependency installation, Prisma validation/generation, TypeScript typecheck, build and unit tests. CI runs for later customer and public website commits have succeeded on earlier adjacent commits, while the latest request-detail changes require their own completed CI result.
+- The CI run for commit `a069a32dffb4d0b60482d17a07fdbbfc21d34a3f` completed successfully, including dependency installation, Prisma validation/generation, TypeScript typecheck, build and unit tests. CI for the quote-editor scaffold through commit `83cfbeac779cd138340c9861ed639c2012dc4b65` completed successfully. Later quote-review UI and localized public-routing commits are still running/queued and are not yet verified.
 - Local execution is blocked by the current container Node version (22.16.0), below the selected Node 22.22.3 baseline; external network access is unavailable in this environment.
 - No PostgreSQL database provisioned or connected.
 - No migration generated or applied.
