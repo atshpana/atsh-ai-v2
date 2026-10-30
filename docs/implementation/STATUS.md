@@ -1,9 +1,9 @@
 # Implementation Status
 
-- Updated: 30 October 2026 (public website homepage implementation pass)
+- Updated: 30 October 2026 (request review and quote detail implementation pass)
 - Repository: atshpana/atsh-ai-v2
 - Branch: implementation/bootstrap
-- Latest confirmed commit before this status update: `9d368a318b6ae967326db54e7f564a6f4b0f4b98`.
+- Latest implementation commits: `8f4ab425d5ba0557c45bfe5bf4e38763e7f9f3f2` (request detail route) and `96114f86a6da351d8e7ba15c9ba0ef2a39efafbd` (request detail styles).
 
 ## Confirmed owner decisions
 - Full greenfield rebuild; legacy code and legacy database excluded.
@@ -26,7 +26,7 @@
 - Professional Arabic administration shell with responsive navigation across the 15 company workspace areas, owner command center, truthful empty states and module landing routes.
 - Expanded owner command center: all 15 company workspaces linked, owner shortcuts, business-pulse metric placeholders tied to their source modules, operational alerts empty state, platform-readiness panel and protected governance gates. No synthetic operational figures are displayed.
 - Responsive workspace-card grid and owner command-center visual treatment added to the admin stylesheet.
-- Added the first dedicated request-operations screen at `/requests`: truthful unconnected-data state, source-bound KPI placeholders, request inbox table structure, reference lifecycle stages, review checklist and links to catalog operations. Responsive styles included; no mock customer/order records or live mutations are exposed.\n- Added the dedicated customer directory at `/customers`: data-model-aligned customer field inventory, KPI source definitions, directory table and Customer 360 section map, disabled actions while APIs/authentication are absent, and explicit unconnected-data state. No mock customer records or live mutations are exposed.
+- Added the first dedicated request-operations screen at `/requests`: truthful unconnected-data state, source-bound KPI placeholders, request inbox table structure, reference lifecycle stages, review checklist and links to catalog operations. Responsive styles included; no mock customer/order records or live mutations are exposed.\n- Added the dedicated customer directory at `/customers`: data-model-aligned customer field inventory, KPI source definitions, directory table and Customer 360 section map, disabled actions while APIs/authentication are absent, and explicit unconnected-data state. No mock customer records or live mutations are exposed.\n- Added a request-review detail route at `/requests/[requestId]` with the source-defined ADM-11 structure: overview, immutable request/price snapshot, quote-version history, event timeline, review checklist, disabled controlled actions and lifecycle gates. The route identifier is treated as untrusted input; no request/customer data is exposed without server-side lookup and authorization.
 - Customer portal placeholder.
 - NestJS API bootstrap and health endpoint.
 - Global deny-by-default permissions guard, explicit Public/RequirePermissions decorators and unit tests for authorization behavior.
@@ -46,7 +46,7 @@
 
 ## Not yet completed or verified
 - No clean install or lockfile committed.
-- The CI run for commit `a069a32dffb4d0b60482d17a07fdbbfc21d34a3f` completed successfully, including dependency installation, Prisma validation/generation, TypeScript typecheck, build and unit tests. The later customer screen and public website commits still require CI verification.
+- The CI run for commit `a069a32dffb4d0b60482d17a07fdbbfc21d34a3f` completed successfully, including dependency installation, Prisma validation/generation, TypeScript typecheck, build and unit tests. CI runs for later customer and public website commits have succeeded on earlier adjacent commits, while the latest request-detail changes require their own completed CI result.
 - Local execution is blocked by the current container Node version (22.16.0), below the selected Node 22.22.3 baseline; external network access is unavailable in this environment.
 - No PostgreSQL database provisioned or connected.
 - No migration generated or applied.
@@ -58,7 +58,7 @@
 
 ## Next actions
 1. Verify the push-triggered GitHub Actions run for the latest implementation commit; correct dependency/schema/compile failures and commit a reproducible lockfile.
-2. Verify CI for the customer and public website commits; fix any type/build failures before expanding the public flow.
+2. Verify CI for the latest request-detail commits; fix any type/build failures, then implement quote creation/version review only after its API and pricing contracts are defined.
 3. Convert the public website to durable locale-aware routes, preserve page context on language switching, and add locale-specific metadata/alternate links.
 4. Implement the service listing, service details, option configurator, cart and secure request submission only after the required API and pricing contracts are ready.
 5. Complete the permission matrix, entity ownership matrix and lifecycle state machines; refine drafts into approved permission keys.
