@@ -1,9 +1,9 @@
 # Implementation Status
 
-- Updated: 30 October 2026 (customer workspace implementation pass)
+- Updated: 30 October 2026 (public website homepage implementation pass)
 - Repository: atshpana/atsh-ai-v2
 - Branch: implementation/bootstrap
-- Latest confirmed commit: `7081ffbc1216ed8f55dcae80227ff13b34d09510` (implementation status update).
+- Latest confirmed commit before this status update: `9d368a318b6ae967326db54e7f564a6f4b0f4b98`.
 
 ## Confirmed owner decisions
 - Full greenfield rebuild; legacy code and legacy database excluded.
@@ -19,7 +19,10 @@
 - Greenfield README, implementation baseline, delivery plan and open-decision register.
 - ADR-0001 architecture marked Accepted.
 - Workspace skeleton for public web, admin, customer portal, NestJS API and worker.
-- Initial bilingual public website UI shell with RTL/LTR switching and responsive styling.
+- Reworked the public website homepage into a structured bilingual experience: hero, delivery approach, six service areas, engineering capabilities, interactive illustrative workflow, scope/acceptance principles, FAQ and CTA.
+- Added responsive layouts for desktop/tablet/mobile, keyboard focus states and reduced-motion handling; the visual direction uses restrained graphite, silver and red accents.
+- Refined page metadata for indexing and application identity. Language switching remains client-side state on the homepage; durable locale routes, context-preserving navigation and alternate-language SEO metadata are still pending.
+- The original hero/logo artwork was not found in the current repository tree. The homepage therefore uses a typographic ATSH AI wordmark and does not claim to display the supplied original logo or hero image.
 - Professional Arabic administration shell with responsive navigation across the 15 company workspace areas, owner command center, truthful empty states and module landing routes.
 - Expanded owner command center: all 15 company workspaces linked, owner shortcuts, business-pulse metric placeholders tied to their source modules, operational alerts empty state, platform-readiness panel and protected governance gates. No synthetic operational figures are displayed.
 - Responsive workspace-card grid and owner command-center visual treatment added to the admin stylesheet.
@@ -43,22 +46,23 @@
 
 ## Not yet completed or verified
 - No clean install or lockfile committed.
-- The CI run for commit `a069a32dffb4d0b60482d17a07fdbbfc21d34a3f` completed successfully, including dependency installation, Prisma validation/generation, TypeScript typecheck, build and unit tests. The newly added customer screen has not yet been covered by a CI run.
+- The CI run for commit `a069a32dffb4d0b60482d17a07fdbbfc21d34a3f` completed successfully, including dependency installation, Prisma validation/generation, TypeScript typecheck, build and unit tests. The later customer screen and public website commits still require CI verification.
 - Local execution is blocked by the current container Node version (22.16.0), below the selected Node 22.22.3 baseline; external network access is unavailable in this environment.
 - No PostgreSQL database provisioned or connected.
 - No migration generated or applied.
 - No authentication/session implementation, request-principal population, database-backed permission resolution, business APIs or persistence services are complete.
 - Project/workflow/AI/support/hosting/finance/content/media/notification models remain to be designed and added.
 - No production/staging environment or deployment exists.
-- UI shells are initial scaffolds, not complete reference-matched screens; the owner command center and request-operations screen have received their first substantive layout passes, but no measured screenshot comparison has been performed.
+- UI shells remain incomplete relative to the full reference. The owner command center, request inbox, customer directory and public homepage have received substantive layout passes, but no measured screenshot comparison has been performed. The public homepage does not yet include the full 15-screen public journey.
 - Health endpoint and permission-guard unit tests passed in the CI run for commit `a069a32dffb4d0b60482d17a07fdbbfc21d34a3f`; the new customer UI has no dedicated browser tests yet, and no full security integration suite has been implemented.
 
 ## Next actions
 1. Verify the push-triggered GitHub Actions run for the latest implementation commit; correct dependency/schema/compile failures and commit a reproducible lockfile.
-2. Run CI for the customer screen commits, fix any type/build failures, then implement the sales quote/review detail flow; keep all data states honest until authenticated APIs are connected.
-2. Complete the permission matrix, entity ownership matrix and lifecycle state machines; refine drafts into approved permission keys.
-3. Expand Prisma schema for projects, workflow plans/tasks, approvals, staff/agents, customer portal, support, hosting, finance, content and notifications.
-4. Add authentication/session, authorization guards and tenant-scope tests before protected business endpoints.
-5. Convert public website to durable locale-aware routes and metadata; verify context-preserving language switching.
-6. Extract remaining detailed screen-by-screen requirements and build design tokens/components against the supplied visual references.
-7. Select the PostgreSQL hosting provider only after security, backup, latency and cost review; then provision an isolated development database with owner approval.
+2. Verify CI for the customer and public website commits; fix any type/build failures before expanding the public flow.
+3. Convert the public website to durable locale-aware routes, preserve page context on language switching, and add locale-specific metadata/alternate links.
+4. Implement the service listing, service details, option configurator, cart and secure request submission only after the required API and pricing contracts are ready.
+5. Complete the permission matrix, entity ownership matrix and lifecycle state machines; refine drafts into approved permission keys.
+6. Expand Prisma schema for projects, workflow plans/tasks, approvals, staff/agents, customer portal, support, hosting, finance, content and notifications.
+7. Add authentication/session, authorization guards and tenant-scope tests before protected business endpoints.
+8. Extract remaining detailed screen-by-screen requirements and build design tokens/components against the supplied visual references.
+9. Select the PostgreSQL hosting provider only after security, backup, latency and cost review; then provision an isolated development database with owner approval.
