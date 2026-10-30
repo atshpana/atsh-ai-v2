@@ -1,42 +1,52 @@
 # Implementation Status
 
 - Updated: 30 October 2026
-- Repository: `atshpana/atsh-ai-v2`
-- Branch: `implementation/bootstrap`
+- Repository: atshpana/atsh-ai-v2
+- Branch: implementation/bootstrap
 
 ## Confirmed owner decisions
-- Full greenfield rebuild; legacy code and database excluded.
+- Full greenfield rebuild; legacy code and legacy database excluded.
 - New independent PostgreSQL database.
 - Next.js + NestJS + TypeScript monorepo.
-- Modular monolith backend.
-- Prisma data access/migrations.
-- Redis/BullMQ only when justified.
+- Modular-monolith backend.
+- Prisma 7 with PostgreSQL driver adapter.
+- Redis/BullMQ only when justified by workload.
 - Public website Arabic/English; admin Arabic only; customer portal language open.
 - Public GitHub repository; no secrets or customer data in Git.
 
 ## Completed in repository
-- Greenfield README and implementation baseline.
-- Greenfield foundation plan and initial requirements traceability map.
-- Architecture ADR-0001 marked Accepted.
-- Open decisions updated to reflect approved stack.
-- Initial workspace skeleton: public web, admin, customer portal, NestJS API and worker.
-- First public website UI shell with a client-side Arabic/English switch, RTL/LTR direction, responsive layout and initial service cards.
-- Initial Arabic administration shell and customer portal placeholder.
-- NestJS API bootstrap with a health endpoint.
+- Greenfield README, implementation baseline, delivery plan and open-decision register.
+- ADR-0001 architecture marked Accepted.
+- Workspace skeleton for public web, admin, customer portal, NestJS API and worker.
+- Initial bilingual public website UI shell with RTL/LTR switching and responsive styling.
+- Initial Arabic admin shell and customer portal placeholder.
+- NestJS API bootstrap and health endpoint.
+- Initial shared UI design tokens.
+- CI workflow configured for Node 22.22.3, dependency installation, Prisma validation/generation, typecheck and build.
+- Dependency baseline documented: Next.js 16.4.3, React 19.3.1, NestJS 12.3.0, CLI/schematics 12.0.11, TypeScript 6.0.3 and Prisma 7.10.1.
+- Source-derived catalog of 15 public screens and 20 admin screens.
+- Core public intake, conditional pricing, admin review, content publishing and software-delivery flows catalogued.
+- Logical API route inventory drafted.
+- New PostgreSQL logical data model drafted.
+- Initial Prisma schema added for users/RBAC, customers, bilingual service catalog/options, pricing versions/rules, service requests/snapshots/events, quotes/acceptance and audit events.
+- Prisma config and safe .env.example added.
 
 ## Not yet completed or verified
-- Dependencies have not been installed in a clean environment.
-- No build, typecheck, lint or browser tests have been run.
-- No lockfile or CI workflow has been added yet.
-- No Prisma schema or application database has been created.
-- No authentication, authorization, business APIs or persistence are implemented.
+- No clean install or lockfile committed.
+- CI run/build/typecheck/Prisma validation status has not been confirmed.
+- No PostgreSQL database provisioned or connected.
+- No migration generated or applied.
+- No authentication/session implementation, authorization guards, business APIs or persistence services are complete.
+- Project/workflow/AI/support/hosting/finance/content/media/notification models remain to be designed and added.
 - No production/staging environment or deployment exists.
-- The visual shell is an initial implementation, not a measured match to the full visual reference.
+- UI shells are initial scaffolds, not complete reference-matched screens; no measured screenshot comparison has been performed.
+- No automated browser or security test suite has been implemented.
 
 ## Next actions
-1. Add shared package scripts/config and GitHub Actions CI.
-2. Run clean install, build and typecheck; fix all issues and commit lockfile.
-3. Extract detailed screen/flow/component requirements from Executive Reference v2.0 and supplied visual references.
-4. Build design-token/component library and measure visual fidelity.
-5. Design the new logical data model and permission matrix before provisioning the new database.
-6. Implement platform identity/security core before customer or staff data workflows.
+1. Verify GitHub Actions CI; correct dependency/schema/compile failures and commit a reproducible lockfile.
+2. Complete the permission matrix, entity ownership matrix and lifecycle state machines.
+3. Expand Prisma schema for projects, workflow plans/tasks, approvals, staff/agents, customer portal, support, hosting, finance, content and notifications.
+4. Add test setup and API security primitives before implementing protected business endpoints.
+5. Convert public website to durable locale-aware routes and metadata; verify context-preserving language switching.
+6. Extract remaining detailed screen-by-screen requirements and build design tokens/components against the supplied visual references.
+7. Select the PostgreSQL hosting provider only after security, backup, latency and cost review; then provision an isolated development database with owner approval.
