@@ -3,7 +3,7 @@
 - Updated: 30 October 2026 (dashboard implementation pass)
 - Repository: atshpana/atsh-ai-v2
 - Branch: implementation/bootstrap
-- Latest confirmed commit: 8f1aa23fc219629999836dcb93f1474841086493
+- Latest confirmed commit: 7e08e41ebee53ba6cbb3bd5ce5c6fa25de4dc9d1
 
 ## Confirmed owner decisions
 - Full greenfield rebuild; legacy code and legacy database excluded.
@@ -23,6 +23,7 @@
 - Professional Arabic administration shell with responsive navigation across the 15 company workspace areas, owner command center, truthful empty states and module landing routes.
 - Expanded owner command center: all 15 company workspaces linked, owner shortcuts, business-pulse metric placeholders tied to their source modules, operational alerts empty state, platform-readiness panel and protected governance gates. No synthetic operational figures are displayed.
 - Responsive workspace-card grid and owner command-center visual treatment added to the admin stylesheet.
+- Added the first dedicated request-operations screen at `/requests`: truthful unconnected-data state, source-bound KPI placeholders, request inbox table structure, reference lifecycle stages, review checklist and links to catalog operations. Responsive styles included; no mock customer/order records or live mutations are exposed.
 - Customer portal placeholder.
 - NestJS API bootstrap and health endpoint.
 - Global deny-by-default permissions guard, explicit Public/RequirePermissions decorators and unit tests for authorization behavior.
@@ -42,19 +43,19 @@
 
 ## Not yet completed or verified
 - No clean install or lockfile committed.
-- CI run/build/typecheck/Prisma validation status has not been confirmed. The combined status lookup for 8f1aa23 returned no status entries, and the commit lookup exposed no PR-associated workflow runs; this is not evidence of a passing CI run.
+- CI run/build/typecheck/Prisma validation status has not been confirmed. The combined status lookup for 7e08e41 returned no status entries, and the commit lookup exposed no PR-associated workflow runs; this is not evidence of a passing CI run.
 - Local execution is blocked by the current container Node version (22.16.0), below the selected Node 22.22.3 baseline; external network access is unavailable in this environment.
 - No PostgreSQL database provisioned or connected.
 - No migration generated or applied.
 - No authentication/session implementation, request-principal population, database-backed permission resolution, business APIs or persistence services are complete.
 - Project/workflow/AI/support/hosting/finance/content/media/notification models remain to be designed and added.
 - No production/staging environment or deployment exists.
-- UI shells are initial scaffolds, not complete reference-matched screens; the owner command center has received its first substantive layout pass, but no measured screenshot comparison has been performed.
+- UI shells are initial scaffolds, not complete reference-matched screens; the owner command center and request-operations screen have received their first substantive layout passes, but no measured screenshot comparison has been performed.
 - Health endpoint and permission-guard unit tests are authored and compiled separately by the test script, but have not run; no automated browser or full security integration suite has been implemented.
 
 ## Next actions
 1. Verify the push-triggered GitHub Actions run for the latest implementation commit; correct dependency/schema/compile failures and commit a reproducible lockfile.
-2. Continue the admin dashboard build with functional screen-level flows, starting with requests/sales and customer records; keep all data states honest until authenticated APIs are connected.
+2. Continue the admin dashboard build screen by screen, next implementing customer records and then the sales quote/review detail flow; keep all data states honest until authenticated APIs are connected.
 2. Complete the permission matrix, entity ownership matrix and lifecycle state machines; refine drafts into approved permission keys.
 3. Expand Prisma schema for projects, workflow plans/tasks, approvals, staff/agents, customer portal, support, hosting, finance, content and notifications.
 4. Add authentication/session, authorization guards and tenant-scope tests before protected business endpoints.
