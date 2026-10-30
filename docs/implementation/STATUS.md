@@ -1,6 +1,6 @@
 # Implementation Status
 
-- Updated: 30 October 2026 (localized public homepage routes)
+- Updated: 30 October 2026 (customer quote review portal)
 - Repository: atshpana/atsh-ai-v2
 - Branch: implementation/bootstrap
 - Latest branch HEAD: `a1892d0b846d788bc12a9fdc55854f8fd69cae78` (localized public homepage routing documentation). Recent related commits include `0bf14ac9c80781d9562c4abad94a2e05ea992ffe` (Next.js Proxy routing) and `edc62f9e5ab8e1b646f4add73575b5ae8246794f` (locale route validation).
@@ -29,10 +29,10 @@
 - Responsive workspace-card grid and owner command-center visual treatment added to the admin stylesheet.
 - Added the first dedicated request-operations screen at `/requests`: truthful unconnected-data state, source-bound KPI placeholders, request inbox table structure, reference lifecycle stages, review checklist and links to catalog operations. Responsive styles included; no mock customer/order records or live mutations are exposed.
 - Added the dedicated customer directory at `/customers`: data-model-aligned customer field inventory, KPI source definitions, directory table and Customer 360 section map, disabled actions while APIs/authentication are absent, and explicit unconnected-data state. No mock customer records or live mutations are exposed.
-- Added a quote-review and customer-preview scaffold at `/requests/[requestId]/quotes/[quoteId]`: immutable-version summary, customer-facing preview boundary, internal approval checklist, version-history state and disabled lifecycle controls.
+- Added a customer-facing quote review route at `/quotes/[quoteId]`: responsive quote details, itemized-scope placeholder, commercial summary, terms/delivery area and accept/request-change controls disabled pending authentication and server-side acceptance verification. No customer or quote data is fabricated.\n- Added a quote-review and customer-preview scaffold at `/requests/[requestId]/quotes/[quoteId]`: immutable-version summary, customer-facing preview boundary, internal approval checklist, version-history state and disabled lifecycle controls.
 - Added a quote-editor scaffold at `/requests/[requestId]/quotes/new`: version identity, quote line-item table, commercial summary, terms/delivery areas, version governance and disabled actions. It follows the existing Quote/QuoteItem/QuoteAcceptance Prisma model; no price, currency, tax, customer or request values are fabricated.
 - Added a request-review detail route at `/requests/[requestId]` with the source-defined ADM-11 structure: overview, immutable request/price snapshot, quote-version history, event timeline, review checklist, disabled controlled actions and lifecycle gates. The route identifier is treated as untrusted input; no request/customer data is exposed without server-side lookup and authorization.
-- Customer portal placeholder.
+- Customer portal now includes a branded quote-review experience; identity, quote lookup, customer ownership checks, secure acceptance/rejection and notifications remain unimplemented.
 - NestJS API bootstrap and health endpoint.
 - Global deny-by-default permissions guard, explicit Public/RequirePermissions decorators and unit tests for authorization behavior.
 - Initial shared UI design tokens.
@@ -63,7 +63,7 @@
 
 ## Next actions
 1. Verify the push-triggered GitHub Actions run for the latest implementation commit; correct dependency/schema/compile failures and commit a reproducible lockfile.
-2. Verify CI for the quote-editor and quote-review commits; implement quote persistence, customer portal delivery and acceptance only after authentication, API, pricing and approval contracts are defined.
+2. Verify CI for the customer quote-review portal; implement quote persistence, authenticated customer delivery and acceptance only after identity, API, pricing, approval and audit contracts are defined.
 3. Complete CI and browser verification for the new locale routes, including `/` redirect, Arabic RTL, English LTR, section-hash preservation and alternate-language metadata.
 4. Implement the service listing, service details, option configurator, cart and secure request submission only after the required API and pricing contracts are ready.
 5. Complete the permission matrix, entity ownership matrix and lifecycle state machines; refine drafts into approved permission keys.
