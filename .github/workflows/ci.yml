@@ -21,6 +21,8 @@ jobs:
       - name: Verify runtime
         run: node --version && npm --version
       - name: Install dependencies
+        env:
+          DATABASE_URL: postgresql://atsh_dev:placeholder@127.0.0.1:5432/atsh_ai_dev?schema=public
         run: npm install
       - name: Validate Prisma schema
         env:
@@ -34,3 +36,5 @@ jobs:
         run: npm run typecheck
       - name: Build
         run: npm run build
+      - name: Unit tests
+        run: npm test
