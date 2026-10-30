@@ -58,7 +58,7 @@
 - Earlier CI runs for the API bootstrap and quote-editor scaffold completed successfully. Verify each later UI batch against its own workflow run before describing it as verified.
 - Local execution is blocked by the current container Node version (22.16.0), below the selected Node 22.22.3 baseline; external network access is unavailable in this environment.
 - No PostgreSQL database provisioned or connected.
-- No migration has been committed or applied. Artifact review showed npm lifecycle banner text because the inspected artifact predated the direct CLI invocation. The subsequent CI attempt failed because the Prisma binary was referenced relative to `apps/api`, while dependencies are installed at the monorepo root. The workflow now resolves the CLI at `../../node_modules/.bin/prisma`; this correction is committed and awaiting its own CI result and artifact inspection.
+- The generated baseline preview from CI run `41132445711` (commit `83c6f2a455677976751e042e66ad043f84efe7ee`) was inspected: pure SQL, 10 enum types, 24 tables, 19 unique indexes, 23 non-unique indexes and 30 foreign-key constraints; no DROP statements. The earlier npm lifecycle banner and incorrect CLI path issues are resolved. The preview is not yet committed as a migration and has not been applied to any persistent database. A follow-up CI change adds an isolated PostgreSQL 16 service, writes the PostgreSQL migration lock, and tests `prisma migrate deploy` plus `migrate status` against that ephemeral database; this test is pending CI.
 - No authentication/session implementation, request-principal population, database-backed permission resolution, business APIs or persistence services are complete.
 - Project/workflow/AI/support/hosting/finance/content/media/notification models remain to be designed and added.
 - No production/staging environment or deployment exists.
@@ -66,8 +66,8 @@
 - Health endpoint and permission-guard unit tests passed in the CI run for commit `a069a32dffb4d0b60482d17a07fdbbfc21d34a3f`; the new customer UI has no dedicated browser tests yet, and no full security integration suite has been implemented.
 
 ## Next actions
-1. Verify CI for commit `83c6f2a455677976751e042e66ad043f84efe7ee`; inspect its newly generated artifact to confirm it contains pure SQL, then review PostgreSQL types, defaults, indexes, foreign keys and delete behaviors before committing `0_init`. Do not apply it to any shared or production database.
-2. Build a reproducible clean-database migration test using an isolated ephemeral PostgreSQL service in CI; verify `migrate deploy` from empty state and Prisma client generation. Do not connect a shared or production database.
+1. Verify CI for the isolated PostgreSQL 16 migration test; confirm the generated baseline deploys cleanly from an empty database and `migrate status` reports it up to date. Do not connect a shared or production database.
+2. Commit the reviewed baseline SQL and PostgreSQL migration lock only after the isolated deployment test succeeds.
 3. Implement the server-side pricing module and tests against `docs/api/PUBLIC_CONFIGURATOR_CART_CONTRACT.md`; keep prices and taxes disabled until approved commercial rules exist.
 4. Implement cart ownership/session, server-side revalidation, price-change confirmation and idempotent request submission only after authentication/session, persistence and API integration tests are ready.
 5. Complete browser verification for locale routes and service listing/details: `/` redirect, Arabic RTL, English LTR, search/filter/empty states, detail links and alternate-language metadata.
