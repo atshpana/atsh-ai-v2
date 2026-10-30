@@ -22,7 +22,7 @@
 - Reworked the public website homepage into a structured bilingual experience: hero, delivery approach, six service areas, engineering capabilities, interactive illustrative workflow, scope/acceptance principles, FAQ and CTA.
 - Added responsive layouts for desktop/tablet/mobile, keyboard focus states and reduced-motion handling; the visual direction uses restrained graphite, silver and red accents.
 - Refined page metadata for indexing and application identity. Language switching remains client-side state on the homepage; durable locale routes, context-preserving navigation and alternate-language SEO metadata are still pending.
-- The original hero/logo artwork was not found in the current repository tree. The homepage therefore uses a typographic ATSH AI wordmark and does not claim to display the supplied original logo or hero image.
+- Added the owner-supplied original hero artwork (`/images/atsh-hero.jpg`) and original circular ATSH emblem (`/images/atsh-logo.jpg`) to the public homepage. The hero artwork preserves its source aspect ratio; the header emblem is cropped within a circular frame. No stock or generated replacement assets are used.
 - Professional Arabic administration shell with responsive navigation across the 15 company workspace areas, owner command center, truthful empty states and module landing routes.
 - Expanded owner command center: all 15 company workspaces linked, owner shortcuts, business-pulse metric placeholders tied to their source modules, operational alerts empty state, platform-readiness panel and protected governance gates. No synthetic operational figures are displayed.
 - Responsive workspace-card grid and owner command-center visual treatment added to the admin stylesheet.
