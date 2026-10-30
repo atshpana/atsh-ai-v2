@@ -116,5 +116,5 @@
 - Analysis commit: `1d96299ca68f9910f26c93b9ad34fba3f370f517`.
 - **Analysis only:** no Prisma schema or migration was changed by this document; no provider, currency, tax, price, payment, registrar, TLD, DNS, AI model or customer-portal language decision was inferred.
 - CI for the updated workflow containing the isolated PostgreSQL 16 migration-deploy/status test has not been independently confirmed in this continuation. The previously verified run `41132485355` predates that workflow change and does not prove the ephemeral PostgreSQL test passed.
-- Current branch head after this documentation update: `1d96299ca68f9910f26c93b9ad34fba3f370f517`.
+- Gap-analysis document commit: `1d96299ca68f9910f26c93b9ad34fba3f370f517`; status-record commit: `170b9e33d0a1844f4f4a432c3a3276344d312fb4`.
 - The first durable migration remains blocked pending model completion, resolution of review findings, a successful isolated PostgreSQL test, and owner approval. No persistent database was provisioned and no migration was applied.
