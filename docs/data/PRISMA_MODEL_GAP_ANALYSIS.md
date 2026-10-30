@@ -175,3 +175,68 @@ The first durable migration is not ready until:
 - the generated SQL has been reviewed and the owner approves the migration boundary.
 
 **Current decision: keep the baseline uncommitted and unapplied.**
+
+
+## 8. Screen/flow-to-data traceability checkpoint
+
+This matrix maps the source catalogue identifiers to the durable records required by each flow. It is a coverage analysis, not a claim that the listed APIs, screens or models are implemented.
+
+| Source ID / flow | Durable records required | Current Prisma coverage | Gap / control that blocks acceptance |
+|---|---|---|---|
+| PUB-01, PUB-08, PUB-09..PUB-15 | ContentPage, ContentPageVersion, ContentSection, ContentTranslation, MediaAsset, SeoMetadata, Contact/Lead submission and consent evidence | Service translations only; no CMS persistence | Draft/published version separation, approved policy version, media access classification, consent and anti-abuse controls absent |
+| PUB-02..PUB-03 | Service, ServiceTranslation, ServiceCategory, ServiceOption, OptionTranslation, Package/PackageItem, catalogue publication version | Service/category/options and translations exist | Package composition/versioning and immutable published catalogue/configurator revision absent |
+| PUB-04 | Cart, CartItem, CartItemOption, ownership/session, expiry, price calculation snapshot | None; request snapshots are post-submission only | Cart ownership, stale price detection, option compatibility, expiry and idempotent mutation absent |
+| PUB-05..PUB-07 | ServiceRequest, RequestAnswer, request line/option/price snapshots, verification challenge/token, RequestEvent | Request and financial snapshots/events exist | No Cart-to-request atomic submit service, answer schema/version, safe tracking verification or rate-limit record |
+| PUB conditional pricing flow | ConfiguratorVersion/Step/Field, PricingVersion/Rule, PriceCalculation, Discount; TaxPolicy inactive | PricingVersion/Rule and partial service pricing exist | No versioned configurator, persisted calculation evidence, discount model or approved tax semantics; server-only pricing and price-change confirmation unimplemented |
+| ADM-01, ADM-16 | User, Session, MFAFactor, Role, Permission, RolePermission, UserRole, AccessGrant, security events | User and basic RBAC exist | Authentication/session lifecycle, MFA, scoped delegation, principal population and effective permission resolution absent |
+| ADM-02, ADM-17, ADM-20 | Query-backed operational projections, AuditEvent, export request/evidence | Generic AuditEvent exists | Metrics must derive from real domain sources; export authorization/audit and audit retention/append-only controls absent |
+| ADM-03..ADM-05, ADM-14..ADM-15, ADM-19; content publication flow | ContentPage/Version/Section/Translation, NavigationMenu/Item, MediaAsset, DesignTokenSet/Token, SeoMetadata, ApprovalRequest, publication/release event | No persistence models | Immutable draft/live revisions, approval, preview, rollback and locale publication controls absent |
+| ADM-06..ADM-09 | ServiceCategory, Service, ServiceOption, Package/PackageItem, ConfiguratorVersion, PricingVersion/Rule, Discount, PriceCalculation | Category/service/option and partial pricing exist | Package and configurator versioning, test scenarios, approval/activation history and commercial-rule decisions absent |
+| ADM-10..ADM-11; administration request-review flow | ServiceRequest, immutable request snapshots, RequestEvent, internal note/contact log, Quote/QuoteItem versions, AuditEvent | Requests, snapshots, events and quote models exist | Internal notes/contact logs and protected state-transition service absent; sent quote immutability and transactional audit need enforcement |
+| ADM-12 | Customer, Organization, OrganizationMember, CustomerAddress, ContactPreference, customer access links | Customer only | Organization membership, explicit customer-user ownership, preferences/consent, address and privacy workflows absent |
+| Quote review / customer acceptance | Quote immutable sent version, QuoteAcceptance evidence, QuoteDecision, QuoteChangeRequest, Contract, ContractAmendment | Quote, items, decision and change request exist | Exact accepted quote-version evidence, transaction/ownership checks, contract conversion and amendment history absent |
+| Project delivery lifecycle | Project, ProjectPlan versions, ProjectStage, ProjectTask, TaskDependency, TaskEvidence, Milestone, ChangeRequest, ReviewRound, DeliveryArtifact, CustomerApproval, ReleaseRecord, HandoverRecord | None | All project execution records and protected approval/release gates absent |
+| Software delivery automation | Project specification/artifact refs, RepositoryLink, Build/Preview evidence, Review/QA result, CustomerRevision, CustomerApproval, Deployment/ReleaseRecord, WorkflowExecution, AuditEvent | None | Must bind every preview, revision, approval and deployment to immutable commit/build/artifact identifiers; n8n is orchestration only |
+| Customer portal contracted operations | Customer/Organization ownership, Project membership, product entitlements, portal access grants, files/artifacts, CustomerApproval | Partial Customer only | No authenticated principal or per-resource customer scope; portal access cannot be enabled |
+| Support and communication | SupportTicket, TicketMessage, NotificationTemplate/Notification/Attempt, CommunicationLog | None | Customer-visible messages must be separated from internal notes and agent logs; delivery idempotency and privacy controls absent |
+| Workflows, teams and AI workforce | StaffProfile, Team, Assignment, WorkflowDefinition/Instance/Step, ApprovalRequest, AgentDefinition/ToolGrant/Run/Task/Review/Budget, WorkflowExecution, Outbox | None | No scoped tool grants, independent review, human approval gate, run-cost enforcement, retries/idempotency or transactional outbox |
+| Hosting operations | HostingAccount, HostedService, BackupRecord, HostingEvent, provider operation references | None | No hosting inventory, client allocation, lifecycle, backup verification or provider boundary |
+| Domain configurator / portal / admin | DomainProvider, Extension, provider-extension map, price versions, package entitlement, order, registration, registrant contact, authorization, renewal, transfer, DNS, connection, operation/event/outbox | None | Must reuse Customer/Package/Contract/Invoice/HostedService/AuditEvent; customer remains registrant; provider/payment/TLD/DNS/renewal commercial decisions remain open |
+| Finance and reconciliation | Invoice/InvoiceLine, PaymentRecord, RefundRecord, LedgerEntry, ReconciliationRun/Exception, approval/audit | None | Commercial/legal policy and payment provider open; balanced ledger and immutable financial evidence required before activation |
+| ADM-18 settings/integrations | Provider/integration metadata, capability registry, secret references, configuration versions, health checks, audit | None | Secret values must remain outside DB; changes require permission, safe connection tests, versioning and audit |
+
+### 8.1 Cross-cutting ownership and evidence paths
+
+The following paths are mandatory before protected business operations can be enabled:
+
+1. **Customer-owned records:** authenticated User → Customer and/or OrganizationMember → Customer/Organization → Request/Quote/Contract/Project/Product records. Every customer-facing query must resolve and enforce this path server-side; a URL identifier is never authorization.
+2. **Staff authority:** User → effective base Role/Permission plus time-bounded AccessGrant/Assignment scope → allowed action on a specific resource. A project assignment cannot grant permissions above the user's owner-approved ceiling.
+3. **AI authority:** AgentDefinition → explicit AgentToolGrant and resource scope → AgentRun/AgentTask → independent AgentReview. The producing agent cannot approve its own result; protected transitions require ApprovalRequest and a human actor.
+4. **Commercial evidence:** versioned Package/Configurator/Pricing → PriceCalculation → immutable Request/Quote snapshot → exact QuoteAcceptance → Contract/Amendment → Invoice/Payment references only when the commercial policy is approved.
+5. **Delivery evidence:** Contract scope → ProjectPlan version → Stage/Task/Evidence → ReviewRound → immutable DeliveryArtifact → CustomerApproval bound to exact artifact/version → ReleaseRecord with commit/build/target/approver/verification → HandoverRecord.
+6. **External operation evidence:** business transaction + Outbox event → WorkflowExecution/provider operation with idempotency/correlation → verified provider result → domain event + audit. n8n or provider callbacks must not directly mutate authoritative status without signature, validation and state-transition checks.
+
+### 8.2 Source-derived flow gates that must become test cases
+
+- Public request: server revalidates catalogue/options/prices; a changed price requires explicit confirmation; request and snapshots persist atomically; confirmation appears only after commit.
+- Administration review: original request snapshot is immutable; each status transition validates the state machine and permission and writes event/audit evidence in one transaction.
+- Quote: every revision is a new version; customer acceptance binds to the exact sent version; duplicate submission is idempotent; cross-customer access is denied.
+- Project: no work starts before approved plan and contractual gates; plan revisions are versioned; defect/nonconformance is distinguished from paid scope change.
+- Software release: preview and revisions remain traceable; final customer approval binds to exact artifact/build; production deployment requires explicit human approval and verified post-deploy checks.
+- Content: draft never mutates the live version; publish/rollback records actor, version and time; locale and media states are validated.
+- Domain: live availability is provider-backed and timestamped; no availability result reserves a name; price/availability are rechecked; registrant ownership remains with customer; registration is not marked successful before provider confirmation.
+- Finance: no payment, tax, refund or ledger operation is activated from a UI-only state; each financial mutation requires approved policy, idempotency and audit evidence.
+
+### 8.3 Recommended next schema slice
+
+Do not add every future module in one large Prisma change. The first model-design slice should be **identity/ownership and commercial intake**, because all customer-facing and staff workflows depend on them:
+
+1. Resolve User ↔ Customer ↔ Organization membership and scoped AccessGrant.
+2. Define Session/MFA storage boundaries without selecting an authentication vendor.
+3. Add Package/PackageItem and immutable catalogue/configurator version structures.
+4. Add Cart/CartItem/CartItemOption and RequestAnswer with ownership and expiry.
+5. Add PriceCalculation and immutable request/quote version/acceptance evidence.
+6. Add DB constraints and tests for quantities, money, temporal validity, idempotency scope and ownership.
+7. Only then proceed to Contract/Project delivery and downstream operational modules.
+
+This ordering is a dependency recommendation, not approval of a payment, tax, currency, authentication or provider policy.
