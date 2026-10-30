@@ -2,6 +2,14 @@
 
 These items remain open until evidence is collected and/or the owner approves them.
 
+## Decisions already made
+| Decision | Approved scope | Date |
+|---|---|---|
+| New implementation repository visibility | Public repository | 30 October 2026 |
+| Public website languages | Arabic and English; language switcher; RTL Arabic and LTR English | 30 October 2026 |
+| Internal administration dashboard language | Arabic only; English dashboard translation is out of current scope | 30 October 2026 |
+
+## Still open
 | Decision | Current status | Required evidence or approval |
 |---|---|---|
 | Application stack for the isolated rebuild | Not approved | Phase 0 inventory, maintainability, security, deployment and database compatibility review |
@@ -14,7 +22,7 @@ These items remain open until evidence is collected and/or the owner approves th
 | AI provider/model and cost limits | Open | Workload tests, data policy, provider capabilities and budget |
 | n8n deployment and license boundary | Open | Internal-only use versus customer-facing workflow service |
 | Staging environment | Not verified | Existing resources and sanitized database restore |
-| Repository visibility | Current isolated repository is public | Owner decision before placing proprietary implementation details or code here |
+| Customer portal language scope | Open | Explicit owner decision; do not infer from the public website decision |
 | Commercial prices, tax, payments and contract rules | Not approved unless separately recorded | Owner/commercial/legal approval |
 
 ## Approval rule
