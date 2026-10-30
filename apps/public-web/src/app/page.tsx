@@ -146,7 +146,6 @@ export default function HomePage() {
     <main className={rtl ? "site" : "site site-en"} dir={rtl ? "rtl" : "ltr"} lang={locale}>
       <header className="topbar">
         <a className="brand" href="#home" aria-label="ATSH AI home">
-          <span className="brand-emblem"><span>A</span><i>T</i><b>S</b><small>H</small></span>
           <span className="brand-wordmark">ATSH <b>AI</b></span>
         </a>
         <nav className="nav-links" aria-label={rtl ? "التنقل الرئيسي" : "Main navigation"}>
@@ -174,7 +173,7 @@ export default function HomePage() {
         <div className="hero-visual" aria-label="ATSH AI visual identity">
           <div className="hero-visual-frame">
             <div className="visual-topline"><span>ATSH AI / DIGITAL SYSTEMS</span><span>01 — 04</span></div>
-            <div className="visual-monogram" aria-hidden="true"><span>A</span><span>T</span><span>S</span><span>H</span></div>
+            <div className="visual-monogram" aria-hidden="true"><span>ATSH</span><b>AI</b></div>
             <div className="visual-baseline"><span>DESIGN</span><span>ENGINEERING</span><span>INTELLIGENCE</span></div>
             <div className="visual-redlight" />
           </div>
