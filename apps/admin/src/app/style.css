@@ -277,3 +277,34 @@ button,input{font:inherit}
 .request-detail-warning{padding:12px 14px;border:1px solid #f0e5d5;border-radius:8px;background:#fffaf3;color:#8f7659;font-size:9px;line-height:1.8}
 @media(max-width:900px){.request-detail-grid{grid-template-columns:1fr}}
 @media(max-width:560px){.request-detail-fields{grid-template-columns:1fr}.request-detail-card{padding:13px}}
+
+
+/* Quote editor workspace */
+.quote-editor-page{direction:rtl}
+.quote-editor-heading{margin-top:14px}
+.quote-editor-alert{display:flex;flex-direction:column;gap:6px;padding:15px 18px;margin:0 0 18px;background:#fff8ef;border:1px solid #f0e1cc;border-radius:10px;color:#795b39;font-size:11px;line-height:1.8}
+.quote-editor-alert b{font-size:12px;color:#68472d}
+.quote-editor-layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(280px,.75fr);gap:15px;align-items:start}
+.quote-editor-main,.quote-editor-side{display:grid;gap:15px;min-width:0}
+.quote-section{padding:19px}
+.quote-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.quote-field-grid label{display:grid;gap:7px;color:#697782;font-size:10px}
+.quote-field-grid input,.quote-field-grid textarea{width:100%;min-width:0;border:1px solid #e7ebee;border-radius:7px;background:#f8f9fa;color:#7e8991;padding:10px 11px;font:10px "IBM Plex Sans Arabic",Arial,sans-serif;outline:0}
+.quote-field-grid input[dir=ltr]{text-align:left}
+.quote-field-grid textarea{min-height:90px;resize:vertical;line-height:1.8}
+.quote-items-table-wrap{width:100%;overflow-x:auto}
+.quote-items-table{width:100%;border-collapse:collapse;min-width:540px}
+.quote-items-table th{padding:11px 10px;background:#f7f8f9;color:#78858e;font-size:9px;text-align:right;font-weight:600}
+.quote-items-table td{border-bottom:1px solid #eef1f3}
+.quote-items-table .request-detail-empty{min-height:130px}
+.quote-disabled-row{display:flex;align-items:center;gap:12px;margin-top:12px}
+.quote-disabled-row button{border:1px solid #e5e9ec;border-radius:7px;background:#f8f9fa;color:#9aa4ac;padding:8px 12px;font-size:10px}
+.quote-disabled-row span{font-size:9px;color:#9aa4ac}
+.quote-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:17px}
+.quote-summary-cell{display:grid;gap:7px;padding:12px;border:1px solid #edf0f2;border-radius:8px}
+.quote-summary-cell span{font-size:10px;color:#7e8a93}
+.quote-summary-cell b{font:500 22px "DM Sans",sans-serif;color:#aeb8bf}
+.quote-summary-cell small{font-size:9px;color:#a0aab1}
+.quote-terms{margin-top:5px}
+@media(max-width:1050px){.quote-editor-layout{grid-template-columns:minmax(0,1fr)}.quote-editor-side{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.quote-field-grid,.quote-editor-side{grid-template-columns:minmax(0,1fr)}.quote-editor-alert{font-size:10px}.quote-section{padding:14px}.quote-disabled-row{align-items:flex-start;flex-direction:column}}
