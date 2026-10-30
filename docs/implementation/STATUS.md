@@ -137,3 +137,14 @@
 - The analysis explicitly distinguishes existing Prisma coverage from missing records and unimplemented controls. It does not claim UI/API/runtime completion and does not change the Prisma schema.
 - Traceability update commit: `f8fee900bec6f8e691c510095d1a01502c9b765b`.
 - Next implementation boundary: design the vendor-neutral identity/ownership and commercial-intake foundation before adding downstream project, AI, hosting, finance or domain models. Authentication vendor, payment/tax/currency policy and external providers remain open.
+
+## Identity and ownership design — 30 October 2026
+
+- Re-verified branch HEAD before continuing: `f2dc85f20e54cb265a501474640690cbdc063df7`; CI run `41133219862` completed successfully.
+- Inspected the actual workflow and job steps: this run validates/generates Prisma, creates/uploads a temporary SQL preview, typechecks, builds and runs unit tests. It does **not** start PostgreSQL or execute `prisma migrate deploy`.
+- Added `docs/security/IDENTITY_OWNERSHIP_AUTHORIZATION_DESIGN.md` (design only) to define trust boundaries, ownership resolution, permission ceilings, scoped-grant requirements, authentication/session boundaries and cross-account security tests.
+- Identified a blocking data-model decision: the current `Customer.userId` is optional and unique, while the logical model separately names Organization and OrganizationMember. The account semantics/cardinality are not sufficiently defined to implement safely.
+- The design records three account-model options and recommends Option A (Customer as the commercial account) as a proposal only; no owner decision is inferred.
+- No Prisma schema, migration, database, authentication provider, runtime authorization behavior or production resource was changed.
+- **Important status correction:** the historical note that run `41132838966` applied a draft to ephemeral PostgreSQL describes an earlier workflow state. The current workflow has since been changed to preview-only as recorded in the Baseline gate correction. Current HEAD run `41133219862` does not prove a PostgreSQL migration-deploy test.
+- Next: obtain an explicit account-model decision and authentication/session ownership decision; then implement the foundational identity/organization/grant schema and tests in a separate change. Keep the durable baseline blocked pending full-scope reconciliation and owner approval.
