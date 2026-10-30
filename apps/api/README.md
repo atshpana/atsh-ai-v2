@@ -11,3 +11,10 @@ NestJS modular-monolith backend.
 - Retried commands and incoming webhooks must be idempotent.
 - Never return secrets or private storage keys in API responses.
 - No database provider or credentials are configured yet; do not add a connection until the new database design and provider are approved.
+
+## Current authorization bootstrap
+- A global deny-by-default PermissionsGuard is registered.
+- Public routes must be explicitly marked with the Public decorator.
+- Protected routes must declare required permissions with RequirePermissions.
+- Until an authentication layer populates the request principal, protected routes remain denied.
+- See docs/security/AUTHORIZATION_IMPLEMENTATION.md for implemented and pending controls.
