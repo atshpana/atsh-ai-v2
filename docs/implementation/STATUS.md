@@ -76,3 +76,14 @@
 7. Add authentication/session, authorization guards and tenant-scope tests before protected business endpoints.
 8. Extract remaining detailed screen-by-screen requirements and build design tokens/components against the supplied visual references.
 9. Select the PostgreSQL hosting provider only after security, backup, latency and cost review; then provision an isolated development database with owner approval.
+
+
+## Domain module — owner-approved specification baseline
+
+- Owner decisions recorded on 30 October 2026: package policy `both` (some packages may include an eligible domain entitlement; other domains are separately priced) and ownership policy `client` (customer is registrant/legal owner; ATSH manages only under recorded customer authorization).
+- Added `docs/domains/DOMAIN_MANAGEMENT_SPEC.md` covering customer configurator step 5/8, customer domain portal, administration screens, logical domain entities/relationships/constraints, NestJS API contracts, lifecycle state machines, n8n orchestration, permission keys, security controls, test plan and acceptance gates.
+- Added domain decisions and unresolved provider/commercial dependencies to `docs/OPEN_DECISIONS.md`.
+- Specification commit: `dcf927f4da9a1c3445297f432aa4c6f784237fd9`.
+- Decision-register commit: `db749f2baeb5f2a62b9ff30610a47f5f0769f086`.
+- **Design only:** no domain UI routes, Prisma models, migrations, persistence APIs, registrar integration, DNS mutation or n8n workflows have been implemented or tested. No registrar/provider was selected.
+- Before implementation: reconcile the proposed domain entities with existing Customer/Package/Contract/Invoice/HostedService/AuditEvent models; finalize open registrar, TLD, renewal, DNS and registrant-data policies; then implement the vertical slice with tests. Do not provision or migrate a database as part of this specification-only change.
