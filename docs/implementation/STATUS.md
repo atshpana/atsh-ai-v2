@@ -106,3 +106,15 @@
 - Added `docs/data/PRISMA_BASELINE_SQL_REVIEW.md` with findings and required follow-up: database CHECK constraints for quantities/monetary values, explicit decision on `pricing_versions.approved_by_id` relation, temporal/lifecycle invariants, transaction-level quote decision and customer ownership checks, and broader model completeness.
 - **Not approved for baseline application:** do not commit as `0_init` or apply. The current schema is still an incomplete draft relative to the full ATSH scope. Reconcile domain/project/contract/invoice/hosting/workflow/AI/support/finance/content/notification models, resolve review findings, regenerate SQL, then run an isolated PostgreSQL migration test in CI.
 - No PostgreSQL database was provisioned or connected; no migration was applied.
+
+
+## Prisma model gap analysis — 30 October 2026
+
+- Added `docs/data/PRISMA_MODEL_GAP_ANALYSIS.md` after comparing the current Prisma schema with the logical data model, screen/flow catalogue and approved domain specification.
+- The analysis maps current Prisma coverage and enumerates missing areas: organizations/security grants, CMS and visual administration, packages/configurator/cart, complete quote/contract evidence, project delivery/release governance, staff/workflow/AI workforce, support/communications, hosting/domain/backup, finance and operational integrations.
+- It records the known baseline review findings and a phased implementation order, while preserving open provider/commercial decisions.
+- Analysis commit: `1d96299ca68f9910f26c93b9ad34fba3f370f517`.
+- **Analysis only:** no Prisma schema or migration was changed by this document; no provider, currency, tax, price, payment, registrar, TLD, DNS, AI model or customer-portal language decision was inferred.
+- CI for the updated workflow containing the isolated PostgreSQL 16 migration-deploy/status test has not been independently confirmed in this continuation. The previously verified run `41132485355` predates that workflow change and does not prove the ephemeral PostgreSQL test passed.
+- Current branch head after this documentation update: `1d96299ca68f9910f26c93b9ad34fba3f370f517`.
+- The first durable migration remains blocked pending model completion, resolution of review findings, a successful isolated PostgreSQL test, and owner approval. No persistent database was provisioned and no migration was applied.
