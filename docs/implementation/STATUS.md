@@ -14,6 +14,7 @@
 - Redis/BullMQ only when justified by workload.
 - Public website Arabic/English; admin Arabic only; customer portal language open.
 - Public GitHub repository; no secrets or customer data in Git.
+- Internal staff sign-in direction: managed identity/sign-in service approved; provider/vendor selection remains open. This does not approve customer-portal identity sharing.
 
 ## Completed in repository
 - Greenfield README, implementation baseline, delivery plan and open-decision register.
@@ -209,3 +210,12 @@
 - Verified the latest branch-head commit at this inspection is dd192eeee3ea4347886171384924b9da2a9fe8c1. GitHub Actions CI run 41135114534 and CodeQL run 41135114426 both completed successfully for that exact SHA. This verifies the repository configured CI and CodeQL checks, not browser behavior, database connectivity, authentication or business APIs.
 - Current status: API authentication/session and customer ownership remain Blocked by owner decisions; request inbox/detail remain Implemented — unverified scaffolds. No staging or production deployment exists.
 - Required next owner input: choose the authentication/session ownership approach and one customer-account model. Once confirmed, implement identity and account ownership as a separately reviewed schema/API slice, then add database-backed permission resolution and cross-account tests before connecting request list/detail screens.
+
+
+## Staff authentication direction — 31 October 2026
+
+- Owner approved using a managed identity/sign-in service for internal ATSH staff rather than building and operating an ATSH-owned password-authentication system.
+- Updated `docs/OPEN_DECISIONS.md` and `docs/security/IDENTITY_OWNERSHIP_AUTHORIZATION_DESIGN.md` to record the decision and its boundary.
+- Still open: select the managed provider/vendor and finalize its integration/session configuration. Customer-portal authentication is explicitly not decided by this approval; the Customer-versus-Organization account model also remains open.
+- No auth package, provider connection, Prisma model, migration, session service, API endpoint, permission seed or runtime principal population was implemented in this documentation-only decision update.
+- Next: compare suitable managed identity providers for staff use, then request approval of the specific provider. Keep protected business APIs blocked until trusted principal population and customer ownership are implemented and tested.
