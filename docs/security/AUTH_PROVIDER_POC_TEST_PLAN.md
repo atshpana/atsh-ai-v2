@@ -220,3 +220,26 @@ This POC does not authorize or include:
 - [ ] Separate implementation authorization granted.
 
 **Current conclusion:** Continue with a documentation-first, isolated evaluation. No provider is selected. WorkOS, Clerk and Cognito remain candidates only.
+
+
+## 12. Additional architecture test cases
+
+The companion ADR, `docs/security/ADR_CUSTOMER_MEMBERSHIP_AND_BFF_SESSION.md`, proposes a canonical CustomerMembership relation and a Next.js BFF session boundary. If the owner approves that design, add these cases to the same provider evaluation. They are architecture requirements, not provider-only features.
+
+| ID | Scenario | Pass criteria |
+|---|---|---|
+| ARCH-01 | Provider callback | State, nonce, PKCE, issuer, audience, signature, and redirect URI validation are correct; replay is rejected. |
+| ARCH-02 | Browser token exposure | No provider access/refresh token or ATSH internal assertion is readable by browser JavaScript. |
+| ARCH-03 | Cookie security | Cookie is Secure, HttpOnly, appropriately SameSite, narrowly scoped, and absent from URLs/logs. |
+| ARCH-04 | CSRF | Cross-site state-changing request is rejected; legitimate same-origin action succeeds. |
+| ARCH-05 | BFF assertion | NestJS rejects wrong issuer/audience, expired, malformed, invalid-signature, replayed where applicable, or wrong-principal assertions. |
+| ARCH-06 | Membership freshness | Membership revocation or User suspension blocks the next protected API request within the defined policy window. |
+| ARCH-07 | Session logout | ATSH session revocation blocks BFF/API access even if the provider session remains active. |
+| ARCH-08 | Key rotation | BFF signing key rotation works with a bounded overlap and no acceptance of revoked keys beyond policy. |
+| ARCH-09 | Duplicate membership | Repeated invite/accept events cannot create two effective User–Customer memberships. |
+| ARCH-10 | No Organization individual | Individual Customer authorization works with no Organization row. |
+| ARCH-11 | Company members | All company members resolve through the same canonical CustomerMembership relation. |
+| ARCH-12 | Staff/customer audience | A customer assertion cannot authorize staff endpoints and vice versa. |
+
+The combined evaluation therefore contains 36 scenarios: 24 provider/application cases plus 12 architecture-boundary cases. ARCH cases must be included if the proposed ADR is approved; otherwise record them as unresolved architecture blockers rather than silently treating them as passed.
+
