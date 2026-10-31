@@ -3,7 +3,7 @@
 - Date: 30 October 2026
 - Base branch: implementation/bootstrap
 - Working branch: docs/auth-provider-poc-plan
-- Status: **Plan only. No provider account, SDK, credentials, schema, migration, runtime authentication, or deployment is created by this document.**
+- Status: **Owner-authorized preparation of an isolated, provider-neutral POC harness using synthetic identities. Provider tenants, SDK integrations, credentials, paid usage, schema/migrations, production authentication, and deployment remain separately gated.**
 - Related decisions:
   - docs/security/CUSTOMER_ACCOUNT_AND_AUTH_OPTIONS.md
   - docs/security/AUTH_PROVIDER_EVALUATION_2026-10-30.md
@@ -27,7 +27,7 @@ Every candidate must be evaluated against the same application-owned model and r
 
 - Customer is the single commercial ownership root for requests, quotes, contracts, projects, invoices, and customer-owned products.
 - Organization is an optional company profile attached to a Customer; it is not a second commercial owner.
-- OrganizationMember represents company-side people, but the canonical effective membership relation for each User–Customer pair must be decided before implementation. No competing authorization paths are permitted.
+- `CustomerMembership` is the owner-approved, sole canonical User–Customer membership relation for individual and business accounts. The optional `Organization` is a company profile only; no separate authoritative `OrganizationMember` relation/table may grant access.
 - Individual Customer accounts must work without an Organization profile.
 - Customer identities, roles, sessions, and permissions are separate from internal ATSH staff identities and permissions.
 - Provider organization IDs, metadata, email addresses, and browser-supplied IDs are never proof of ATSH account ownership.
@@ -58,7 +58,7 @@ Every candidate must be evaluated against the same application-owned model and r
 
 ### 3.3 POC boundary
 
-The POC may use a small isolated Next.js/NestJS test harness only after explicit owner authorization to implement it. Until that authorization, this document defines tests and expected evidence only.
+The owner authorized preparation of a small isolated, provider-neutral Next.js/NestJS test harness on 31 October 2026. Use synthetic fixtures only and implement the approved BFF/session boundary as a testable contract. This authorization does not permit provider tenant creation/connection, real email/SMS, paid usage or spend, production credentials, production schema/migrations, customer-facing login, protected production API enablement, or deployment. Provider-specific SDK adapters must wait for separate authorization to create/connect disposable provider test tenants and any associated spend.
 
 ## 4. Test personas and synthetic fixtures
 
@@ -121,7 +121,7 @@ The POC must validate the same proposed separation:
 6. ATSH records relevant security and membership events in its own audit model.
 7. Provider organization membership is an input to an invitation/membership workflow only; it is not an independent authorization grant.
 
-Do not finalize cookie names, token storage, session persistence, refresh strategy, BFF route layout, or membership schema based on assumptions. Document and review those designs before implementation.
+The high-level architecture is owner-approved: Next.js BFF + opaque Secure/HttpOnly browser cookie + server-side provider credentials + short-lived ATSH internal assertion to NestJS; NestJS resolves current membership, ownership, and permissions from PostgreSQL. Exact cookie SameSite, idle/absolute session lifetime, key algorithm/custody/rotation, and CSRF implementation details remain open and must be documented as configurable test parameters rather than silently fixed.
 
 ## 7. Provider-specific evaluation notes
 
@@ -183,8 +183,8 @@ Scoring does not override hard-fail security cases. A candidate with a hard-fail
 
 Decision gates:
 
-1. **Gate 0 — Owner authorization:** approve building an isolated POC harness and specify an allowed test budget. No provider connection before this gate.
-2. **Gate 1 — Architecture review:** approve the session/BFF design and canonical membership model before integrating application code.
+1. **Gate 0 — Owner authorization (partially satisfied 31 October 2026):** preparation of an isolated provider-neutral harness with synthetic data is authorized. Provider tenants/connections, external email/SMS, paid usage, and spend require separate explicit approval.
+2. **Gate 1 — Architecture review (high-level decisions approved 31 October 2026):** canonical CustomerMembership and Next.js BFF/session boundary are approved; detailed cookie/session/key/CSRF policies remain open.
 3. **Gate 2 — Technical evaluation:** complete the same test matrix for all candidates; hard-fail security cases must pass.
 4. **Gate 3 — Commercial review:** recheck current vendor pricing, terms, data processing, region, support and exit/export provisions.
 5. **Gate 4 — Owner selection:** owner explicitly selects provider and plan. Comparison scores alone do not authorize selection.
@@ -210,21 +210,22 @@ This POC does not authorize or include:
 - [x] Provider comparison completed for WorkOS, Clerk, Cognito, Supabase Auth and Auth0.
 - [x] POC shortlist identified: WorkOS, Clerk and Cognito.
 - [x] Controlled test plan and hard-fail security criteria documented.
-- [ ] Owner authorization to build isolated POC harness.
-- [ ] Session/BFF design approved.
-- [ ] Canonical User–Customer membership model approved.
-- [ ] Provider test environments authorized and configured.
+- [x] Owner authorization to prepare isolated provider-neutral POC harness with synthetic identities (31 October 2026).
+- [x] High-level Session/BFF design approved (31 October 2026); detailed policies remain open.
+- [x] Canonical User–Customer membership model approved (31 October 2026).
+- [ ] Separate owner authorization for provider test tenants/connections, external email/SMS, and any paid usage/spend.
+- [ ] Provider test environments configured after separate authorization.
 - [ ] Test matrix executed for all three providers.
 - [ ] Commercial terms and costs revalidated.
 - [ ] Owner selects provider and plan.
 - [ ] Separate implementation authorization granted.
 
-**Current conclusion:** Continue with a documentation-first, isolated evaluation. No provider is selected. WorkOS, Clerk and Cognito remain candidates only.
+**Current conclusion:** Begin the isolated provider-neutral harness preparation using synthetic identities and the approved membership/BFF architecture. No provider is selected or connected. WorkOS, Clerk and Cognito remain candidates only. Provider tenant setup and any external/paid activity require separate owner approval.
 
 
 ## 12. Additional architecture test cases
 
-The companion ADR, `docs/security/ADR_CUSTOMER_MEMBERSHIP_AND_BFF_SESSION.md`, proposes a canonical CustomerMembership relation and a Next.js BFF session boundary. If the owner approves that design, add these cases to the same provider evaluation. They are architecture requirements, not provider-only features.
+The companion ADR, `docs/security/ADR_CUSTOMER_MEMBERSHIP_AND_BFF_SESSION.md`, proposes a canonical CustomerMembership relation and a Next.js BFF session boundary. The owner approved the high-level design on 31 October 2026; include these cases in the same provider evaluation. They are architecture requirements, not provider-only features.
 
 | ID | Scenario | Pass criteria |
 |---|---|---|
@@ -241,5 +242,5 @@ The companion ADR, `docs/security/ADR_CUSTOMER_MEMBERSHIP_AND_BFF_SESSION.md`, p
 | ARCH-11 | Company members | All company members resolve through the same canonical CustomerMembership relation. |
 | ARCH-12 | Staff/customer audience | A customer assertion cannot authorize staff endpoints and vice versa. |
 
-The combined evaluation therefore contains 36 scenarios: 24 provider/application cases plus 12 architecture-boundary cases. ARCH cases must be included if the proposed ADR is approved; otherwise record them as unresolved architecture blockers rather than silently treating them as passed.
+The combined evaluation therefore contains 36 scenarios: 24 provider/application cases plus 12 architecture-boundary cases. ARCH cases are mandatory for the approved architecture and must not be treated as passed until executed.
 
