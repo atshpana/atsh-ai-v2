@@ -1,7 +1,7 @@
 # ADR: Customer Membership and Web-to-API Session Boundary
 
 - Date: 31 October 2026
-- Status: **Proposed architecture for owner review; no runtime or schema implementation.**
+- Status: **Owner-approved architecture decisions; documentation only. No runtime or schema implementation.**
 - Related owner decision: Customer account model Option A is approved.
 - Related POC plan: docs/security/AUTH_PROVIDER_POC_TEST_PLAN.md
 - Applies to: Next.js App Router, NestJS Modular Monolith, PostgreSQL + Prisma, managed identity provider candidates (WorkOS AuthKit, Clerk, Amazon Cognito).
@@ -13,7 +13,7 @@ This ADR proposes two concrete architectural decisions for review:
 1. **Canonical customer membership:** introduce one universal `CustomerMembership` relation between `User` and `Customer`. It is the only authoritative relation that grants a human access to a commercial Customer account. For a company account, the optional `Organization` profile belongs to that Customer; company membership is represented by the same CustomerMembership rows. Do not create a second independently authorizing `OrganizationMember` table.
 2. **Browser/API session boundary:** use a Next.js Backend-for-Frontend (BFF) with an opaque, HttpOnly browser session cookie. Keep provider credentials server-side. Next.js forwards authenticated application requests to NestJS using a short-lived, ATSH-issued internal access assertion. NestJS validates that assertion and independently resolves membership, resource ownership, and permissions from PostgreSQL.
 
-These are recommendations, not implementation authorization. Owner confirmation is required before schema, SDK, session, or runtime changes.
+The owner approved both architectural decisions on 31 October 2026. This approval covers the architecture boundary and documentation only; it does not authorize production implementation, schema/migration changes, provider SDK integration, credentials, or deployment.
 
 ## 2. Canonical membership model
 
@@ -193,8 +193,8 @@ Add these implementation checks to the existing 24-case matrix:
 
 These items require owner/product/security review and are not silently decided by this ADR:
 
-1. Approve or reject CustomerMembership as the canonical relation and the decision not to use a separate authoritative OrganizationMember table.
-2. Approve or reject the Next.js BFF + opaque cookie + ATSH internal assertion architecture.
+1. **Approved:** CustomerMembership is the sole canonical User–Customer membership relation; no separate authoritative OrganizationMember table.
+2. **Approved:** Next.js BFF + opaque Secure/HttpOnly browser cookie + server-side provider credentials + short-lived ATSH internal assertion to NestJS; NestJS resolves current membership, ownership, and permissions from PostgreSQL.
 3. Exact cookie SameSite setting and callback topology after the selected provider is known.
 4. Session idle and absolute lifetime; concurrent-session policy.
 5. Signing algorithm, key custody, rotation and emergency revocation.
@@ -223,11 +223,11 @@ These items require owner/product/security review and are not silently decided b
 - [x] Proposed one canonical User–Customer membership relation documented.
 - [x] Proposed Next.js BFF and opaque-cookie session boundary documented.
 - [x] Additional 12 architecture tests documented.
-- [ ] Owner approval of canonical membership relation.
-- [ ] Owner approval of BFF/session architecture.
+- [x] Owner approval of canonical membership relation (31 October 2026).
+- [x] Owner approval of BFF/session architecture (31 October 2026).
 - [ ] Session policy and key-management decisions.
 - [ ] Authorization to create isolated POC harness and provider test tenants.
 - [ ] Provider POC execution and evidence.
 - [ ] Provider selection.
 
-**Conclusion:** The recommended design is one canonical CustomerMembership relation plus a Next.js BFF session boundary. Both remain proposed until owner approval. No application code, Prisma schema, migration, provider SDK, credentials, or deployment is changed by this ADR.
+**Conclusion:** The owner-approved design is one canonical CustomerMembership relation plus a Next.js BFF session boundary. Provider selection, detailed session/key policies, and provider-tenant/test-spend authorization remain open. This ADR records architecture approval only; it does not change application code, Prisma schema, migrations, provider SDKs, credentials, or deployment.
