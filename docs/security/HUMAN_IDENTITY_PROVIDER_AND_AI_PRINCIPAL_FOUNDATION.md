@@ -13,7 +13,7 @@ Do not select one identity vendor as the identity authority for all ATSH actors.
 
 Evaluate the managed identity provider only for human staff authentication. Keep authorization, principal registry, agent capabilities, workload identity, approval evidence and audit policy inside ATSH's provider-neutral architecture.
 
-**Owner-approved provider for internal staff sign-in: Amazon Cognito.** The owner approved the vendor on 31 October 2026. Cognito Lite remains the initial cost-focused feature-plan candidate, but Lite versus Essentials is not yet selected and must be validated against the required login experience and security controls. The reasons are:
+**Owner-approved provider for internal staff sign-in: Amazon Cognito.** The owner approved the vendor and selected **Cognito Lite** on 31 October 2026 as the no-fixed-monthly-fee starting feature plan. Use TOTP MFA. Reconsider Essentials only if a required login or security capability cannot be met on Lite. The reasons are:
 - No minimum monthly fee or upfront commitment.
 - Lite and Essentials each include 10,000 direct/social monthly active users per AWS account/organization at no charge, indefinitely, subject to AWS region/product terms.
 - Lite includes authenticator-app MFA (TOTP) and SMS MFA.
@@ -94,7 +94,7 @@ Official sources:
 | Vendor/platform independence | High | AWS dependency | Supabase dependency | Clerk dependency |
 | AI workload identity as one shared plane | Not desired | Not recommended | Not recommended | Not recommended |
 
-**Approved provider boundary:** Amazon Cognito is approved for human staff sign-in only. Start technical validation with Cognito Lite and TOTP MFA; compare Essentials only if its Managed Login customization or additional authentication features are required. The exact feature plan, AWS region, pool configuration and integration/session settings remain open. Keep a provider adapter so the application does not spread Cognito-specific claims or SDK objects through domain services.
+**Approved provider boundary:** Amazon Cognito is approved for human staff sign-in only. Start technical validation with Cognito Lite and TOTP MFA; compare Essentials only if a required feature cannot be delivered on Lite. The AWS region, pool configuration and integration/session settings remain open. Keep a provider adapter so the application does not spread Cognito-specific claims or SDK objects through domain services.
 
 If the Cognito Lite hosted UI or integration effort proves unacceptable, compare Clerk Pro as the developer-experience alternative. Consider Supabase Auth only if there is a separate owner decision to adopt Supabase as an intentional platform dependency.
 
