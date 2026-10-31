@@ -52,13 +52,13 @@ This is a design recommendation, not a schema authorization:
 
 ### Blocking decision A — customer account semantics
 
-The existing design explicitly leaves three alternatives open:
+The owner approved **Option A: Customer is the commercial account**. An individual or business customer has one Customer account; a business account may have an Organization profile and multiple OrganizationMember rows. Requests, projects and contracts belong to Customer; active membership grants customer-side access. The two unselected alternatives are retained in the ownership design for historical context only.
 
 - **Option A:** Customer is the commercial account; a business Customer may have an Organization profile and multiple OrganizationMember rows.
 - **Option B:** Organization is the business account, while individuals use Customer, requiring a consistent shared ownership abstraction.
 - **Option C:** Customer is a person/contact and Organization is the owning business account.
 
-The current unique `Customer.userId` is insufficient for multi-user business accounts. Do not implement membership or protected customer ownership until the owner selects the account semantics.
+The current unique `Customer.userId` is insufficient for multi-user business accounts. The account-model blocker is resolved, and the next schema change should replace this one-to-one link with explicit membership while preserving Customer as the owner of commercial records.
 
 ### Blocking decision B — staff identity provider
 
