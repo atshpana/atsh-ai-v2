@@ -219,3 +219,15 @@
 - Still open: select the managed provider/vendor and finalize its integration/session configuration. Customer-portal authentication is explicitly not decided by this approval; the Customer-versus-Organization account model also remains open.
 - No auth package, provider connection, Prisma model, migration, session service, API endpoint, permission seed or runtime principal population was implemented in this documentation-only decision update.
 - Next: compare suitable managed identity providers for staff use, then request approval of the specific provider. Keep protected business APIs blocked until trusted principal population and customer ownership are implemented and tested.
+
+
+## AI-first workforce identity architecture — 31 October 2026
+
+- Owner clarified that ATSH AI's operating model is expected to automate or AI-assist approximately 90% of routine work. This is an architectural planning assumption, not a measured production metric.
+- Added `docs/security/AI_FIRST_WORKFORCE_IDENTITY_MODEL.md` (Draft v1.0), separating human, workload/service, AI-agent, customer, and external-provider identity boundaries.
+- Defined provider-neutral principal resolution, least-privilege capabilities, permission ceilings, server-side tool/action brokering, n8n/worker boundaries, agent run attribution, human approval gates for protected actions, audit evidence, provider-evaluation criteria, and security acceptance tests.
+- Updated `docs/security/IDENTITY_OWNERSHIP_AUTHORIZATION_DESIGN.md` to make clear that managed sign-in applies to human staff only and is not an identity authority for agents/workloads.
+- Updated `docs/OPEN_DECISIONS.md`: human sign-in provider remains open; workload identity/secret-management provider and agent roster/capability catalogue are separate open decisions.
+- **Documentation/design only:** no provider selected, no auth or agent package added, no Prisma model or migration changed, no credentials or integrations created, no agent tool access enabled, and no API/UI/runtime behavior implemented.
+- Existing blockers remain: customer-account semantics, customer portal identity boundary, trusted principal population, server-side authorization, and ownership/isolation implementation.
+- Next: evaluate the human sign-in provider for a small human workforce independently from workload identity; then design the minimum principal/capability/audit schema and tool-broker API against approved workflows. Do not enable write-capable agents before the approval and security gates are implemented and tested.
