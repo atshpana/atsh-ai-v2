@@ -124,7 +124,7 @@ The current generic `UserRole.scopeType/scopeId` should not be treated as a comp
 
 ## 7. Authentication and session boundary
 
-**Owner decisions (31 October 2026):** Internal ATSH staff sign-in will use Amazon Cognito; ATSH will not build and operate its own staff password-authentication system. The Cognito feature plan (Lite versus Essentials), AWS region, pool configuration and exact integration/session settings remain open. This approval is limited to internal staff authentication and does not decide customer-portal identity, customer MFA policy, or whether staff and customers share a tenant.
+**Owner decisions (31 October 2026):** Internal ATSH staff sign-in will use Amazon Cognito; ATSH will not build and operate its own staff password-authentication system. Amazon Cognito Lite is approved as the initial no-fixed-monthly-fee feature plan, with TOTP MFA; AWS region, pool configuration and exact integration/session settings remain open. This approval is limited to internal staff authentication and does not decide customer-portal identity, customer MFA policy, or whether staff and customers share a tenant.
 
 The data model must remain provider-neutral until the provider is selected. In either case:
 - Store provider subject identifiers with issuer/provider context and uniqueness scoped correctly; a globally unique bare subject may not be sufficient across issuers.
@@ -193,7 +193,7 @@ Do not add unused generic JSON permission blobs or arbitrary string-based scope 
 ## 11. Non-decisions preserved
 
 This document does not select:
-- Cognito feature plan (Lite versus Essentials), AWS region, pool configuration and exact staff session integration/configuration.
+- AWS region, pool configuration and exact staff session integration/configuration. Cognito Lite is the approved initial feature plan; reconsider Essentials only if a required capability cannot be met on Lite.
 - Customer-portal authentication provider or whether it shares the staff tenant.
 - Session ownership model for customer identities.
 - MFA requirement or provider.
@@ -214,7 +214,7 @@ No protected customer portal or business API should be considered production-rea
 - The resulting schema has passed Prisma validation, generated-client checks, and an empty ephemeral PostgreSQL migration test.
 - The owner approves the migration boundary before any persistent database is provisioned or migrated.
 
-**Current decision: Amazon Cognito approved for internal staff sign-in (feature plan/configuration open); customer account model Option A approved; customer-portal identity remains open. Design only; no schema or migration changes.**
+**Current decision: Amazon Cognito Lite approved for internal staff sign-in (configuration open); customer account model Option A approved; customer-portal identity remains open. Design only; no schema or migration changes.**
 
 
 ## 13. AI-first workforce architecture addendum — 31 October 2026
