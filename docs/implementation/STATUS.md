@@ -256,3 +256,14 @@
 - Physical customer membership schema remains blocked on the owner selecting Customer-account semantics (Option A/B/C in `docs/security/IDENTITY_OWNERSHIP_AUTHORIZATION_DESIGN.md`).
 - Staff managed sign-in direction is approved, but Cognito Lite remains a candidate to test, not an approved provider. Customer portal identity remains separate and open.
 - Next safe step: obtain the two owner decisions (customer account semantics and staff provider selection) before implementing the identity schema and staff-only proof of concept.
+
+
+## Customer account model approved — 31 October 2026
+
+- Owner explicitly approved **Option A: Customer is the commercial account**.
+- A commercial customer has one Customer account. A business account may have an optional Organization profile and multiple OrganizationMember users. Requests, projects and contracts remain owned by Customer; active membership controls customer-side user access.
+- Updated `docs/OPEN_DECISIONS.md`, `docs/security/IDENTITY_OWNERSHIP_AUTHORIZATION_DESIGN.md` and `docs/security/IDENTITY_SCHEMA_RECONCILIATION.md` to record the decision and remove the account-semantics blocker.
+- The current Prisma `Customer.userId` one-to-one relation is now confirmed insufficient and should be replaced by explicit membership in the next schema slice. Do not silently move commercial ownership from Customer to Organization.
+- **Documentation/decision update only:** Prisma schema, migrations, APIs, authentication, sessions and customer access behavior have not yet changed.
+- Remaining identity blockers: staff provider selection (Cognito Lite is a candidate, not approved), customer portal identity/session boundary, membership lifecycle/role details, and workload/agent identity runtime decisions.
+- Next implementation slice: design and implement Customer + optional Organization profile + OrganizationMember relations, with uniqueness/lifecycle constraints and tests; keep database migration application gated by the existing baseline review and explicit approval process.
