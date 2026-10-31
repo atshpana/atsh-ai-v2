@@ -278,3 +278,12 @@
 - Cognito is not the ATSH authorization authority. Staff roles/permissions, customer ownership, workload identities, AI-agent principals/capabilities, approval gates and audit remain ATSH responsibilities.
 - **Documentation/decision update only:** no AWS account or Cognito user pool was created; no credentials, secrets, packages, provider integration, auth/session runtime, Prisma schema, migration, API route or agent permission was added.
 - Next: define and run a staff-only Cognito proof of concept covering issuer/audience/signature validation, TOTP MFA, disabled-user/revocation behavior, session lifecycle and acceptable login UX. Keep customer portal identity and workload/agent identity separate.
+
+
+## Amazon Cognito Lite feature plan approved — 31 October 2026
+
+- Owner selected **Amazon Cognito Lite** as the initial feature plan for internal staff sign-in, preferring the no-fixed-monthly-fee option.
+- TOTP authenticator-app MFA is the intended MFA method; SMS-based MFA is not part of the default design because message delivery can incur separate charges.
+- Essentials is not selected. Reconsider it only if a required login or security capability cannot be met on Lite.
+- AWS region, user-pool configuration, OIDC integration, session lifecycle and revocation implementation remain to be designed and verified.
+- This is a feature-plan decision, not evidence that the service is already provisioned or connected. No AWS account/pool, credentials, packages, runtime auth, schema, migration or deployment were created by this decision.
