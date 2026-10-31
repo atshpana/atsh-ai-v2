@@ -267,3 +267,14 @@
 - **Documentation/decision update only:** Prisma schema, migrations, APIs, authentication, sessions and customer access behavior have not yet changed.
 - Remaining identity blockers: staff provider selection (Cognito Lite is a candidate, not approved), customer portal identity/session boundary, membership lifecycle/role details, and workload/agent identity runtime decisions.
 - Next implementation slice: design and implement Customer + optional Organization profile + OrganizationMember relations, with uniqueness/lifecycle constraints and tests; keep database migration application gated by the existing baseline review and explicit approval process.
+
+
+## Amazon Cognito staff identity provider approved — 31 October 2026
+
+- Owner explicitly approved **Amazon Cognito** as the managed identity provider for internal ATSH human staff sign-in.
+- Updated `docs/OPEN_DECISIONS.md`, `docs/security/HUMAN_IDENTITY_PROVIDER_AND_AI_PRINCIPAL_FOUNDATION.md` and `docs/security/IDENTITY_OWNERSHIP_AUTHORIZATION_DESIGN.md` to record the vendor decision and its boundary.
+- Approval covers staff human authentication only. It does not select Cognito Lite versus Essentials, AWS region, user-pool configuration, login branding, session ownership/configuration, or customer-portal identity.
+- Initial validation should test Cognito Lite with TOTP MFA and OIDC token verification; evaluate Essentials only if required hosted-login customization or additional authentication features justify it.
+- Cognito is not the ATSH authorization authority. Staff roles/permissions, customer ownership, workload identities, AI-agent principals/capabilities, approval gates and audit remain ATSH responsibilities.
+- **Documentation/decision update only:** no AWS account or Cognito user pool was created; no credentials, secrets, packages, provider integration, auth/session runtime, Prisma schema, migration, API route or agent permission was added.
+- Next: define and run a staff-only Cognito proof of concept covering issuer/audience/signature validation, TOTP MFA, disabled-user/revocation behavior, session lifecycle and acceptable login UX. Keep customer portal identity and workload/agent identity separate.
