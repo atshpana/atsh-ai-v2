@@ -133,7 +133,7 @@ The data model must remain provider-neutral until the provider is selected. In e
 - Password reset, recovery, MFA enrollment, login throttling, credential rotation and session invalidation need explicit security design and tests.
 - No authentication implementation is authorized by this design note.
 
-## 8. Customer account model — blocking decision
+## 8. Customer account model — Option A approved (31 October 2026)
 
 The logical model establishes that organizations can group customer users and projects, but the exact cardinality and account semantics are not sufficiently specified.
 
@@ -158,7 +158,7 @@ Choose and document one of these models before Prisma changes:
 - Requests/projects/contracts must distinguish personal customer ownership from organization ownership.
 - Requires a defined model for sole traders, multiple contacts, and personal customers.
 
-**Recommendation:** Option A is the least disruptive extension of the existing request model, but it is not an owner-approved decision. Do not implement it without explicit confirmation.
+**Implementation direction:** extend Customer as the account owner, add an optional one-to-one Organization profile for business accounts, and add OrganizationMember as the many-to-many user membership relation. A customer user must not gain access merely because they know an email, company name, or Customer ID. Membership status, role, invitation/activation, removal and audit behavior must be explicit.
 
 ## 9. Schema work blocked until decisions
 
@@ -198,7 +198,7 @@ This document does not select:
 - Customer-portal authentication provider or whether it shares the staff tenant.
 - Session ownership model for customer identities.
 - MFA requirement or provider.
-- Customer account semantics (Option A/B/C).
+- Customer account semantics (Option A) are approved; remaining details include organization profile fields and membership role/lifecycle rules.
 - Legal/KYC or customer verification requirements.
 - Data retention, consent, or deletion periods.
 - Production hosting, secret manager, or security vendor.
@@ -215,7 +215,7 @@ No protected customer portal or business API should be considered production-rea
 - The resulting schema has passed Prisma validation, generated-client checks, and an empty ephemeral PostgreSQL migration test.
 - The owner approves the migration boundary before any persistent database is provisioned or migrated.
 
-**Current decision: staff authentication direction approved (managed identity); provider selection and customer-account model remain open. Design only; no schema or migration changes.**
+**Current decision: staff authentication direction approved (managed identity); customer account model Option A approved; staff provider selection and customer-portal identity remain open. Design only; no schema or migration changes.**
 
 
 ## 13. AI-first workforce architecture addendum — 31 October 2026
