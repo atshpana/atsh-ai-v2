@@ -10,14 +10,14 @@
 
 ### 1.1 Customer account model — approved Option A
 
-The commercial customer is the account owner represented by one `Customer` account. A company account may have multiple authorized customer-side users. The company profile is represented by `Organization`, and the people who can access the account are represented by `OrganizationMember`.
+The commercial customer is the account owner represented by one `Customer` account. A company account may have multiple authorized customer-side users. The company profile is represented by `Organization`. All people who can access an individual or business Customer account are represented through the single canonical `CustomerMembership` relation.
 
 Conceptual relationship:
 
 ```text
 Customer account (commercial owner)
   ├── Organization profile (for business customers)
-  │     └── OrganizationMember ── User
+  │     └── (profile only; no separate membership authority)
   ├── ServiceRequests
   ├── Quotes
   ├── Contracts
@@ -25,13 +25,13 @@ Customer account (commercial owner)
   └── Customer-owned products (hosting, domains, etc.)
 
 User
-  ├── Customer account membership(s), as explicitly granted
+  ├── CustomerMembership[] (canonical customer-account access)
   └── Customer-side role / scoped permissions
 ```
 
 The Customer account remains the single commercial ownership anchor. Organization is the company profile and membership container; it does not become a second competing owner of requests, projects, contracts, invoices, or products.
 
-For an individual customer, a Customer account may exist without an Organization profile. The account may have one or more authorized users (for example, the customer and an assistant), subject to explicit membership policy. For a company, the Organization profile is attached to its Customer account and authorized employees are linked through OrganizationMember.
+For an individual customer, a Customer account may exist without an Organization profile. The account may have one or more authorized users (for example, the customer and an assistant), subject to explicit membership policy. For a company, the Organization profile is attached to its Customer account; authorized employees are linked through the same canonical CustomerMembership relation.
 
 ### 1.2 Authentication strategy — compare only
 
@@ -57,14 +57,14 @@ The owner selected **Compare**. This authorizes an architecture and options comp
 | User | Human identity and account status | Unique internal identity; no password/provider assumptions embedded in the customer domain |
 | Customer | Commercial account and ownership root | One stable account ID; owns requests, quotes, contracts, projects and products |
 | Organization | Optional company/legal/business profile | Belongs to one Customer account in this model; cannot independently own commercial records |
-| OrganizationMember | Link between User and Organization | Unique active membership per user/account; status, invitation/activation timestamps, role assignment and audit |
-| CustomerMembership | Account access relation, if needed separately from OrganizationMember | Needed for individual accounts and any customer account access not represented by an Organization; must not duplicate or conflict with company membership |
+| CustomerMembership | Canonical link between User and Customer | Unique `(customer_id, user_id)`; status, invitation/activation timestamps, customer-side role and audit |
+
 | CustomerRole / CustomerPermission | Customer-side role model | Separate namespace and policy from internal staff RBAC |
 | AccessGrant | Narrow, temporary delegation to a project/product/unit | Validated resource ownership, explicit actions, start/expiry/revocation, grantor ceiling |
 | IdentityLink | Provider-neutral external identity mapping | Issuer + subject uniqueness; support provider migration/multiple issuers |
 | Session | Only if ATSH owns session persistence | Hashed/verifier-only token material, expiry, revocation and minimal metadata; never raw bearer tokens |
 
-**Modeling note:** Before Prisma implementation, decide whether `CustomerMembership` is the universal relation for all customer accounts and `OrganizationMember` is a profile-specific view/extension, or whether `OrganizationMember` itself is the membership relation for business accounts while a distinct customer-user relation covers individuals. Do not create two independent authorization paths that can disagree. The invariant is one canonical effective membership decision per User–Customer pair.
+**Owner-approved modeling decision (31 October 2026):** `CustomerMembership` is the one universal and authoritative relation for all customer accounts, individual and business. Do not create a separate authoritative `OrganizationMember` table. The optional `Organization` is a company profile attached to Customer; company member lists are resolved through CustomerMembership for that Customer.
 
 ## 4. Authentication approaches compared
 
@@ -195,7 +195,7 @@ For every protected request:
 ## 10. Open decisions retained
 
 - Authentication provider/vendor and final shortlist.
-- Who owns browser/application sessions and exact cookie/BFF strategy.
+- Exact cookie/BFF settings, session lifetime, signing algorithm and key custody (the high-level Next.js BFF + opaque cookie + ATSH assertion architecture is owner-approved).
 - MFA/passkey policy for customers and staff.
 - Whether one human may belong to multiple Customer accounts and how account switching is presented.
 - Customer role catalogue and who can invite/remove members.
@@ -204,4 +204,4 @@ For every protected request:
 - Data retention, consent and account deletion policy.
 - Provider region, data-processing terms, service-level and projected cost.
 
-**Current state:** Option A is approved as the customer account model. Authentication remains in comparison; hybrid is the recommended architecture pattern only. No provider, schema, migration, authentication runtime or database change is approved by this document.
+**Current state:** Customer account model A, canonical CustomerMembership, and the high-level Next.js BFF + opaque cookie + ATSH internal assertion architecture are owner-approved. Authentication provider remains in comparison; hybrid is the recommended provider pattern only. No provider, schema, migration, authentication runtime or database change is approved by this document.
