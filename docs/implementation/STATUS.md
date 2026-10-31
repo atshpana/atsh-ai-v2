@@ -231,3 +231,16 @@
 - **Documentation/design only:** no provider selected, no auth or agent package added, no Prisma model or migration changed, no credentials or integrations created, no agent tool access enabled, and no API/UI/runtime behavior implemented.
 - Existing blockers remain: customer-account semantics, customer portal identity boundary, trusted principal population, server-side authorization, and ownership/isolation implementation.
 - Next: evaluate the human sign-in provider for a small human workforce independently from workload identity; then design the minimum principal/capability/audit schema and tool-broker API against approved workflows. Do not enable write-capable agents before the approval and security gates are implemented and tested.
+
+
+## Human identity provider and AI principal foundation — 31 October 2026
+
+- Researched official vendor pricing and technical documentation for Amazon Cognito, Supabase Auth and Clerk.
+- Added `docs/security/HUMAN_IDENTITY_PROVIDER_AND_AI_PRINCIPAL_FOUNDATION.md` with a comparative evaluation for a small human workforce, a leading-but-unapproved recommendation to test Cognito Lite for staff sign-in, and explicit pricing/feature trade-offs.
+- The evaluation separates human MAU/MRU costs from AI model, n8n, worker, workload identity and tool-call costs. It specifically avoids treating AI agents as human seats or assuming that the staff identity vendor should issue every machine credential.
+- Added provider-neutral conceptual entities for Principal, ExternalIdentity, WorkloadIdentity, AgentDefinition/AgentRun, Capability/CapabilityGrant, ApprovalRequest/Decision, ToolInvocation and AuditEvent extension, plus proposed API boundaries, implementation sequence and proof-of-concept acceptance criteria.
+- Updated `docs/OPEN_DECISIONS.md`: Cognito Lite is the leading candidate to test, not an approved vendor selection. Provider-neutral agent/workload architecture remains design-only.
+- Official research checked 31 October 2026: Cognito Lite/Essentials 10,000 direct/social MAU free tier and TOTP MFA on Lite; Supabase Auth Free 50,000 MAU / Pro from $25 and TOTP MFA; Clerk Hobby 50,000 MRU but no MFA, Pro $20/month billed annually with MFA.
+- **Documentation and evaluation only:** no identity vendor account or pool created, no package installed, no provider connection or credential added, no Prisma schema/migration changed, no API route or tool broker implemented, and no AI-agent permission granted.
+- Current identity implementation remains blocked on owner provider selection, customer account semantics, customer portal identity boundary, trusted principal verification, and security-tested authorization.
+- Next: if the owner approves Cognito Lite, build a minimal staff-only proof of concept with TOTP and OIDC verification. In parallel, reconcile the proposed principal/capability entities with the current Prisma User/RBAC/AuditEvent models and logical data model before any schema change.
