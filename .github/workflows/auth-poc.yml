@@ -1,0 +1,31 @@
+name: Authentication POC (synthetic only)
+
+on:
+  push:
+    branches:
+      - docs/auth-provider-poc-plan
+    paths:
+      - "tools/auth-poc/**"
+      - ".github/workflows/auth-poc.yml"
+  pull_request:
+    paths:
+      - "tools/auth-poc/**"
+      - ".github/workflows/auth-poc.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  architecture-tests:
+    name: ARCH-01 to ARCH-12
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run isolated synthetic tests
+        working-directory: tools/auth-poc
+        run: npm test
