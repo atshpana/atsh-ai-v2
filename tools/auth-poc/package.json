@@ -1,0 +1,13 @@
+{
+  "name": "@atsh/auth-poc",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Provider-neutral, synthetic-only authentication architecture POC tests.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22.22.3"
+  }
+}
