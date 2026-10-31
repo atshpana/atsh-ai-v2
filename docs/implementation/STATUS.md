@@ -244,3 +244,15 @@
 - **Documentation and evaluation only:** no identity vendor account or pool created, no package installed, no provider connection or credential added, no Prisma schema/migration changed, no API route or tool broker implemented, and no AI-agent permission granted.
 - Current identity implementation remains blocked on owner provider selection, customer account semantics, customer portal identity boundary, trusted principal verification, and security-tested authorization.
 - Next: if the owner approves Cognito Lite, build a minimal staff-only proof of concept with TOTP and OIDC verification. In parallel, reconcile the proposed principal/capability entities with the current Prisma User/RBAC/AuditEvent models and logical data model before any schema change.
+
+
+## Identity foundation — 31 October 2026
+
+- Added `docs/security/IDENTITY_SCHEMA_RECONCILIATION.md` after reviewing the current Prisma schema, logical data model, customer ownership design and AI-first identity proposals.
+- Confirmed the existing `User` model is a suitable human-account anchor, but its optional globally unique `authSubject` is not a sufficient provider-neutral external identity mapping; a namespaced issuer/subject mapping is required before trusted authentication is implemented.
+- Confirmed `Customer.userId` is unique and therefore cannot represent multiple customer-side members; free-text `Customer.company` is not an organization or membership model.
+- Confirmed current RBAC is staff-oriented and does not provide verified workload identity, agent-run attribution, resource-scoped AI capabilities, exact-payload approvals or a tool/action broker.
+- **This commit is documentation/reconciliation only.** No Prisma schema, migration, package, provider account, credential, API route, session, authorization runtime or agent permission was added.
+- Physical customer membership schema remains blocked on the owner selecting Customer-account semantics (Option A/B/C in `docs/security/IDENTITY_OWNERSHIP_AUTHORIZATION_DESIGN.md`).
+- Staff managed sign-in direction is approved, but Cognito Lite remains a candidate to test, not an approved provider. Customer portal identity remains separate and open.
+- Next safe step: obtain the two owner decisions (customer account semantics and staff provider selection) before implementing the identity schema and staff-only proof of concept.
