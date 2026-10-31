@@ -216,3 +216,12 @@ No protected customer portal or business API should be considered production-rea
 - The owner approves the migration boundary before any persistent database is provisioned or migrated.
 
 **Current decision: staff authentication direction approved (managed identity); provider selection and customer-account model remain open. Design only; no schema or migration changes.**
+
+
+## 13. AI-first workforce architecture addendum — 31 October 2026
+
+The owner clarified that ATSH AI expects approximately 90% of routine operations to be automated or AI-assisted. Identity design must therefore model a small human workforce alongside distinct workload/service and AI-agent identities; a managed human sign-in provider is not the identity authority for automation.
+
+The detailed provider-neutral model is documented in `docs/security/AI_FIRST_WORKFORCE_IDENTITY_MODEL.md`. It defines principal classes, verifiable workload identity, agent run attribution, least-privilege capabilities, permission ceilings, a server-side tool/action broker, n8n and worker boundaries, human approval gates for protected actions, audit requirements, provider evaluation implications, and security tests.
+
+This clarification does not approve a particular human identity vendor, customer identity design, agent roster, schema, secret manager, runtime platform, or policy service. It does not authorize credentials, integrations, API endpoints, migrations, or agent tool access. Human authentication remains a distinct concern from workload/agent authentication and ATSH authorization.
