@@ -10,7 +10,7 @@ test("selects project-appropriate capabilities and reports unknown costs", () =>
   assert.equal(plan.projectKind, "web_app");
   assert.ok(plan.decisions.some((item) => item.capabilityId === "postgres.database"));
   assert.ok(plan.decisions.some((item) => item.capabilityId === "openai.models"));
-  assert.ok(plan.decisions.some((item) => item.capabilityId === "playwright.qa") === false);
+  assert.ok(plan.decisions.some((item) => item.capabilityId === "playwright.qa"));
   assert.equal(plan.estimatedMonthlyUsd, null);
   assert.equal(plan.executionAllowed, false);
   assert.equal(plan.requiresHumanApproval, true);
