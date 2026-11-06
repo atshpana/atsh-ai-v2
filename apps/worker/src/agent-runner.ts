@@ -7,18 +7,19 @@ type Job = {
   attempts: number;
   max_attempts: number;
   last_response_id: string | null;
+  last_call_id: string | null;
 };
 
 type Decision =
-  | { kind: "continue"; note: string; responseId: string | null }
-  | { kind: "complete"; result: unknown; responseId: string | null }
-  | { kind: "approval"; reason: string; responseId: string | null };
+  | { kind: "continue"; note: string; responseId: string | null; callId: string }
+  | { kind: "complete"; result: unknown; responseId: string | null; callId: string }
+  | { kind: "approval"; reason: string; responseId: string | null; callId: string };
 
 const pollMs = Number(process.env.AGENT_POLL_INTERVAL_MS ?? 3000);
 const leaseMs = Number(process.env.AGENT_LEASE_MS ?? 120000);
 const maxTurns = Number(process.env.AGENT_MAX_TURNS_PER_CLAIM ?? 8);
 const maxOutputTokens = Number(process.env.AGENT_MAX_OUTPUT_TOKENS ?? 1800);
-const model = process.env.OPENAI_MODEL ?? "gpt-6";
+const model = process.env.OPENAI_MODEL;
 const workerId = process.env.AGENT_WORKER_ID ?? `worker-${randomUUID()}`;
 
 const pool = new Pool({
@@ -72,7 +73,7 @@ async function claimJob(): Promise<Job | null> {
   try {
     await client.query("BEGIN");
     const found = await client.query<Job>(
-      `SELECT id, input, attempts, max_attempts, last_response_id
+      `SELECT id, input, attempts, max_attempts, last_response_id, last_call_id
          FROM agent_jobs
         WHERE (status = 'queued' AND available_at <= NOW())
            OR (status = 'running' AND lease_expires_at < NOW())
@@ -125,6 +126,7 @@ async function heartbeat(jobId: string) {
 async function askModel(job: Job, checkpoint: string): Promise<Decision> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is required; no model call was attempted.");
+  if (!model) throw new Error("OPENAI_MODEL must be explicitly configured; no model call was attempted.");
   const body: Record<string, unknown> = {
     model,
     store: false,
@@ -137,7 +139,9 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
       "Request human approval before production deployment, destructive changes, spending, or undocumented decisions.",
       "This worker currently exposes progress, completion, and approval tools only; it cannot edit repositories or deploy.",
     ].join(" "),
-    input: JSON.stringify({ task: job.input, previousCheckpoint: checkpoint }),
+    input: job.last_response_id && job.last_call_id
+      ? [{ type: "function_call_output", call_id: job.last_call_id, output: JSON.stringify({ checkpointSaved: true, note: checkpoint }) }]
+      : JSON.stringify({ task: job.input, previousCheckpoint: checkpoint }),
     tools,
     tool_choice: "required",
   };
@@ -154,33 +158,34 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
   }
   const payload = await response.json() as {
     id?: string;
-    output?: Array<{ type?: string; name?: string; arguments?: string }>;
+    output?: Array<{ type?: string; name?: string; arguments?: string; call_id?: string }>;
     usage?: { input_tokens?: number; output_tokens?: number };
   };
   const call = payload.output?.find((item) => item.type === "function_call");
-  if (!call?.name || !call.arguments) throw new Error("Model response did not contain a supported function call.");
+  if (!call?.name || !call.arguments || !call.call_id) throw new Error("Model response did not contain a supported function call.");
   const args = JSON.parse(call.arguments) as Record<string, unknown>;
   const responseId = payload.id ?? null;
   if (call.name === "record_progress" && typeof args.note === "string") {
-    return { kind: "continue", note: args.note, responseId };
+    return { kind: "continue", note: args.note, responseId, callId: call.call_id };
   }
   if (call.name === "complete_job" && args.result && typeof args.result === "object") {
-    return { kind: "complete", result: args.result, responseId };
+    return { kind: "complete", result: args.result, responseId, callId: call.call_id };
   }
   if (call.name === "request_human_approval" && typeof args.reason === "string") {
-    return { kind: "approval", reason: args.reason, responseId };
+    return { kind: "approval", reason: args.reason, responseId, callId: call.call_id };
   }
   throw new Error(`Unsupported or invalid model tool call: ${call.name}`);
 }
 
-async function saveCheckpoint(jobId: string, responseId: string | null, note: string) {
+async function saveCheckpoint(jobId: string, responseId: string | null, callId: string, note: string) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const update = await client.query(
       `UPDATE agent_jobs SET checkpoint = $3, last_response_id = COALESCE($4, last_response_id),
-         updated_at = NOW() WHERE id = $1 AND status = 'running' AND lease_owner = $2`,
-      [jobId, workerId, note, responseId],
+         last_call_id = $5, updated_at = NOW()
+       WHERE id = $1 AND status = 'running' AND lease_owner = $2`,
+      [jobId, workerId, note, responseId, callId],
     );
     if (update.rowCount !== 1) throw new Error("Job lease was lost while saving checkpoint.");
     await event(client, jobId, "job.checkpoint", { note, responseId });
@@ -247,8 +252,9 @@ async function processJob(job: Job) {
       const decision = await askModel(job, checkpoint);
       if (decision.kind === "continue") {
         checkpoint = decision.note;
-        await saveCheckpoint(job.id, decision.responseId, checkpoint);
+        await saveCheckpoint(job.id, decision.responseId, decision.callId, checkpoint);
         job.last_response_id = decision.responseId;
+        job.last_call_id = decision.callId;
         continue;
       }
       if (decision.kind === "complete") {
@@ -258,7 +264,7 @@ async function processJob(job: Job) {
       await finish(job.id, "waiting_approval", decision.reason, decision.responseId);
       return;
     }
-    await saveCheckpoint(job.id, job.last_response_id, "Turn limit reached; safely yielding for the next worker claim.");
+    await saveCheckpoint(job.id, job.last_response_id, job.last_call_id ?? "", "Turn limit reached; safely yielding for the next worker claim.");
     await pool.query(
       "UPDATE agent_jobs SET status='queued', lease_owner=NULL, lease_expires_at=NULL, available_at=NOW(), updated_at=NOW() WHERE id=$1 AND lease_owner=$2 AND status='running'",
       [job.id, workerId],
