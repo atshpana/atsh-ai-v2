@@ -28,7 +28,7 @@ test("flags providers outside the project allowlist", () => {
     requirements: ["database"],
     constraints: { approvedProviders: ["OnlyOtherProvider"] },
   });
-  assert.ok(plan.decisions.some((item) => item.capabilityId === "unresolved:relational_database"));
+  const database = plan.decisions.find((item) => item.capabilityId === "postgres.database");\n  assert.ok(database?.requiresApproval);\n  assert.match(database?.blockedReason ?? "", /approved-provider/i);
 });
 
 test("flags regulated-data projects for security review", () => {
@@ -38,5 +38,5 @@ test("flags regulated-data projects for security review", () => {
     constraints: { dataSensitivity: "regulated" },
   });
   assert.equal(plan.requiresHumanApproval, true);
-  assert.ok(plan.approvalReasons.some((reason) => reason.includes("regulated")));
+  assert.ok(plan.approvalReasons.some((reason) => reason.toLowerCase().includes("regulated")));
 });
