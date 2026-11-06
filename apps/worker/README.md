@@ -18,7 +18,7 @@ The only model tools are `record_progress`, `complete_job`, and `request_human_a
 - Node.js version required by the repository.
 - New independent PostgreSQL database and `DATABASE_URL`.
 - OpenAI API key supplied through the runtime secret manager as `OPENAI_API_KEY`.
-- A supported model configured with `OPENAI_MODEL` (default: `gpt-6`).
+- A model identifier enabled for the OpenAI API account, configured explicitly with `OPENAI_MODEL`.
 
 Never commit API keys or database credentials.
 
