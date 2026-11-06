@@ -284,7 +284,7 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal: signal ?? AbortSignal.timeout(90000),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(90000)]) : AbortSignal.timeout(90000),
   });
   if (!response.ok) {
     throw new Error(`OpenAI Responses API returned HTTP ${response.status}.`);
