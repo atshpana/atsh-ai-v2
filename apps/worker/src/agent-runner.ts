@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
 import { planTools, type ProjectBrief, type ProjectKind } from "./tool-orchestrator.js";
 
@@ -204,6 +204,59 @@ async function heartbeat(jobId: string) {
   if (result.rowCount !== 1) throw new Error("Job lease was lost; refusing to continue.");
 }
 
+async function persistToolPlan(job: Job, brief: ProjectBrief, plan: ReturnType<typeof planTools>): Promise<{ id: string; version: number; status: string }> {
+  const registryVersion = "capability-registry-v1";
+  const canonical = JSON.stringify({ registryVersion, brief, plan });
+  const fingerprint = createHash("sha256").update(canonical).digest("hex");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const existing = await client.query<{ id: string; version: number; status: string }>(
+      "SELECT id, version, status FROM agent_tool_plans WHERE job_id = $1 AND fingerprint = $2",
+      [job.id, fingerprint],
+    );
+    if (existing.rows[0]) {
+      await client.query("COMMIT");
+      return existing.rows[0];
+    }
+    await client.query("SELECT id FROM agent_jobs WHERE id = $1 FOR UPDATE", [job.id]);
+    const versionResult = await client.query<{ version: number }>(
+      "SELECT COALESCE(MAX(version), 0) + 1 AS version FROM agent_tool_plans WHERE job_id = $1",
+      [job.id],
+    );
+    const version = versionResult.rows[0].version;
+    const inserted = await client.query<{ id: string; version: number; status: string }>(
+      `INSERT INTO agent_tool_plans
+        (job_id, version, registry_version, brief, plan, status, estimated_monthly_usd,
+         requires_human_approval, fingerprint)
+       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, 'draft', $6, $7, $8)
+       ON CONFLICT (job_id, fingerprint) DO UPDATE SET fingerprint = EXCLUDED.fingerprint
+       RETURNING id, version, status`,
+      [job.id, version, registryVersion, JSON.stringify(brief), JSON.stringify(plan),
+        plan.estimatedMonthlyUsd, plan.requiresHumanApproval, fingerprint],
+    );
+    const saved = inserted.rows[0];
+    if (!saved) {
+      const reused = await client.query<{ id: string; version: number; status: string }>(
+        "SELECT id, version, status FROM agent_tool_plans WHERE job_id = $1 AND fingerprint = $2", [job.id, fingerprint]);
+      if (!reused.rows[0]) throw new Error("Tool plan insert returned no row and no idempotent record exists.");
+      await client.query("COMMIT");
+      return reused.rows[0];
+    }
+    await client.query(
+      "INSERT INTO agent_tool_plan_events (plan_id, event_type, payload) VALUES ($1, 'plan.created', $2::jsonb)",
+      [saved.id, JSON.stringify({ version: saved.version, registryVersion, fingerprint })],
+    );
+    await client.query("COMMIT");
+    return saved;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function askModel(job: Job, checkpoint: string): Promise<Decision> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is required; no model call was attempted.");
@@ -246,7 +299,7 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
   if (call.name === "plan_project_tools") {
     const brief = args as unknown as ProjectBrief;
     const kinds: ProjectKind[] = ["website", "web_app", "mobile_app", "ecommerce", "ai_assistant", "automation", "custom_software"];
-    if (!kinds.includes(brief.kind) || !Array.isArray(brief.requirements) || brief.requirements.some((item) => typeof item !== "string") || !brief.constraints || typeof brief.constraints !== "object" || Array.isArray(brief.constraints)) {
+    if (!kinds.includes(brief.kind) || !Array.isArray(brief.requirements) || brief.requirements.some((item: unknown) => typeof item !== "string") || !brief.constraints || typeof brief.constraints !== "object" || Array.isArray(brief.constraints)) {
       throw new Error("Invalid project brief supplied to tool planner.");
     }
     const rawConstraints = brief.constraints as unknown as Record<string, unknown>;
