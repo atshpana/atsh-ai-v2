@@ -75,7 +75,7 @@ The staff-only proof of concept is now a technical acceptance gate, not a vendor
 
 ## 5. Safe implementation order
 
-1. Owner resolves customer account semantics; record the decision.
+1. Customer account semantics are approved (Option A); implement the explicit membership model while preserving Customer as commercial owner.
 2. Run the staff-only Amazon Cognito Lite proof of concept and pass the documented acceptance criteria.
 3. Finalize the provider-neutral human identity mapping and session boundary.
 4. Implement trusted token/session verification in NestJS; derive request principal only from verified credentials.
@@ -93,7 +93,7 @@ The staff-only proof of concept is now a technical acceptance gate, not a vendor
 - Staff provider decision: **Amazon Cognito Lite approved for staff sign-in; PoC/configuration not started**.
 - Authentication sessions and trusted runtime principal verification: **Not started**.
 - Runtime principal verification: **Not started**.
-- Customer membership and tenant isolation: **Blocked on account-model decision**.
+- Customer account model: **Option A approved; explicit membership schema, lifecycle rules and tenant-isolation implementation remain outstanding**.
 - Workload/agent runtime identity and tool broker: **Not started; runtime/provider decisions remain open**.
 
 No authentication, authorization, customer isolation, workload identity or agent execution capability should be described as implemented or production-ready on the basis of this document.
