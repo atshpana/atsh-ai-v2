@@ -50,6 +50,18 @@ async function githubContents(path: string): Promise<string> {
 const tools = [
   {
     type: "function",
+    name: "github_read_file",
+    description: "Read a text file or list a directory in the allowlisted ATSH AI repository. Read-only.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: { path: { type: "string" } },
+      required: ["path"],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
     name: "record_progress",
     description: "Record a concise checkpoint and continue working. Do not claim completion.",
     strict: true,
