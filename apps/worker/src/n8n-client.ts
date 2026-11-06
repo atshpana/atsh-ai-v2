@@ -186,7 +186,7 @@ export function validateWorkflow(definition: WorkflowDefinition, catalog: N8nNod
       // A target is valid if it appears in the serialized connection object.
       if (destinations.includes(`"node":"${targetName}"`)) continue;
     }
-    const referenced = [...destinations.matchAll(/"node"\s*:\s*"([^"]+)"/g)].map((match) => match[1]);
+    const referenced = [...destinations.matchAll(/"node"\s*:\s*"([^"]+)"/g)].map((match) => match[1]).filter((value): value is string => typeof value === "string");
     for (const targetName of referenced) if (!names.has(targetName)) throw new Error(`Connection target node does not exist: ${targetName}`);
   }
 }
