@@ -34,6 +34,10 @@ if (!model) throw new Error("OPENAI_MODEL is required.");
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required.");
 if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is required.");
 const workerId = process.env.AGENT_WORKER_ID ?? `worker-${randomUUID()}`;
+function log(level: "info" | "warn" | "error", event: string, fields: Record<string, unknown> = {}) {
+  const line = JSON.stringify({ timestamp: new Date().toISOString(), level, event, workerId, ...fields }) + "\n";
+  (level === "error" ? process.stderr : process.stdout).write(line);
+}
 const githubRef = process.env.ATSH_GITHUB_REF ?? "implementation/bootstrap";
 if (process.env.GITHUB_TOKEN && process.env.ATSH_GITHUB_REPOSITORY !== "atshpana/atsh-ai-v2") {
   throw new Error("GITHUB_TOKEN requires ATSH_GITHUB_REPOSITORY=atshpana/atsh-ai-v2.");
@@ -287,6 +291,8 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
     signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(90000)]) : AbortSignal.timeout(90000),
   });
   if (!response.ok) {
+    const detail = (await response.text()).replace(/(?:sk-[A-Za-z0-9_-]{12,}|Bearer\\s+\\S+)/g, "[REDACTED]").slice(0, 1200);
+    log("error", "openai.http_error", { jobId: job.id, status: response.status, detail });
     throw new Error(`OpenAI Responses API returned HTTP ${response.status}.`);
   }
   const payload = await response.json() as {
@@ -425,6 +431,7 @@ async function requeue(job: Job, reason: string) {
 }
 
 async function processJob(job: Job) {
+  log("info", "job.started", { jobId: job.id, attempt: job.attempts, maxAttempts: job.max_attempts });
   let checkpoint = "";
   const current = await pool.query<{ checkpoint: string | null }>(
     "SELECT checkpoint FROM agent_jobs WHERE id = $1",
@@ -433,6 +440,7 @@ async function processJob(job: Job) {
   checkpoint = current.rows[0]?.checkpoint ?? "";
   try {
     for (let turn = 0; turn < maxTurns; turn += 1) {
+      log("info", "job.turn.started", { jobId: job.id, turn: turn + 1, maxTurns });
       await heartbeat(job.id);
       const controller = new AbortController();
       const heartbeatIntervalMs = Math.max(1000, Math.floor(leaseMs / 3));
@@ -450,7 +458,9 @@ async function processJob(job: Job) {
       }, heartbeatIntervalMs);
       let decision: Decision;
       try {
+        log("info", "openai.request.started", { jobId: job.id, turn: turn + 1, model });
         decision = await askModel(job, checkpoint, controller.signal);
+        log("info", "openai.request.completed", { jobId: job.id, turn: turn + 1, decision: decision.kind });
         if (heartbeatFailure) throw heartbeatFailure;
       } finally {
         clearInterval(heartbeatTimer);
@@ -475,7 +485,9 @@ async function processJob(job: Job) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown worker error";
+    log("error", "job.processing_failed", { jobId: job.id, attempt: job.attempts, message, stack: error instanceof Error ? error.stack?.slice(0, 3000) : undefined });
     await requeue(job, message);
+    log("warn", "job.retry_or_failed", { jobId: job.id, attempt: job.attempts, terminal: job.attempts >= job.max_attempts });
   }
 }
 
@@ -489,7 +501,10 @@ async function main() {
   while (!stopping) {
     try {
       const job = await claimJob();
-      if (job) await processJob(job);
+      if (job) {
+        log("info", "job.claimed", { jobId: job.id, attempt: job.attempts, maxAttempts: job.max_attempts });
+        await processJob(job);
+      }
       else await new Promise((resolve) => setTimeout(resolve, pollMs));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown polling error";
