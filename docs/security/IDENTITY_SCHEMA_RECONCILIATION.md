@@ -86,7 +86,7 @@ Managed identity for internal staff is approved as a direction. Cognito Lite is 
 ## 6. Current implementation status
 
 - Reconciliation: **Designed / documented**.
-- Prisma schema changes: **Not started**.
+- Prisma schema changes: **CustomerMembership and optional Organization profile drafted on `feature/customer-membership-model`; validation and review pending**.
 - Migrations and database: **Not started**.
 - Authentication provider and sessions: **Not started**.
 - Runtime principal verification: **Not started**.
