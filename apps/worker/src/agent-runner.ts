@@ -170,7 +170,7 @@ async function claimJob(): Promise<Job | null> {
     await client.query(
       `UPDATE agent_jobs
           SET status = 'running', lease_owner = $2,
-              lease_expires_at = NOW() + ($3 * INTERVAL '1 millisecond'),
+              lease_expires_at = NOW() + ($3::double precision * INTERVAL '1 millisecond'),
               heartbeat_at = NOW(), started_at = COALESCE(started_at, NOW()),
               attempts = attempts + 1, updated_at = NOW()
         WHERE id = $1`,
@@ -197,7 +197,7 @@ async function event(client: PoolClient, jobId: string, type: string, payload: u
 async function heartbeat(jobId: string) {
   const result = await pool.query(
     `UPDATE agent_jobs SET heartbeat_at = NOW(),
-       lease_expires_at = NOW() + ($3 * INTERVAL '1 millisecond'), updated_at = NOW()
+       lease_expires_at = NOW() + ($3::double precision * INTERVAL '1 millisecond'), updated_at = NOW()
       WHERE id = $1 AND status = 'running' AND lease_owner = $2`,
     [jobId, workerId, leaseMs],
   );
