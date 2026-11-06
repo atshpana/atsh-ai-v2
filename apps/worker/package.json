@@ -6,7 +6,7 @@
     "start": "node dist/main.js",
     "build": "tsc --project tsconfig.json",
     "typecheck": "tsc --project tsconfig.json --noEmit",
-    "test": "npm run build && node --test dist/tool-orchestrator.test.js"
+    "test": "npm run build && node --test dist/*.test.js"
   },
   "dependencies": {
     "pg": "^8.16.3"
