@@ -28,6 +28,25 @@ const pool = new Pool({
   idleTimeoutMillis: 30000,
 });
 
+const githubRepository = process.env.ATSH_GITHUB_REPOSITORY ?? "";
+const githubToken = process.env.GITHUB_TOKEN;
+
+async function githubContents(path: string): Promise<string> {
+  if (!githubToken) throw new Error("GITHUB_TOKEN is required for repository inspection.");
+  if (githubRepository !== "atshpana/atsh-ai-v2") throw new Error("Repository is not in the worker allowlist.");
+  const normalized = path.replace(/^\\/+|\\/+/g, "");
+  if (!normalized || normalized.split("/").some((part) => part === "..")) throw new Error("Invalid repository path.");
+  const response = await fetch(`https://api.github.com/repos/${githubRepository}/contents/${normalized}?ref=implementation/bootstrap`, {
+    headers: { Authorization: `Bearer ${githubToken}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!response.ok) throw new Error(`GitHub read failed with status ${response.status}.`);
+  const payload = await response.json() as { type?: string; name?: string; path?: string; content?: string; encoding?: string; size?: number; download_url?: string | null } | Array<{ type?: string; name?: string; path?: string; size?: number }>;
+  if (Array.isArray(payload)) return JSON.stringify(payload.map(({ type, name, path: itemPath, size }) => ({ type, name, path: itemPath, size }))).slice(0, 12000);
+  if (payload.type !== "file" || payload.encoding !== "base64" || typeof payload.content !== "string") throw new Error("Requested path is not a readable text file.");
+  return Buffer.from(payload.content.replace(/\\n/g, ""), "base64").toString("utf8").slice(0, 12000);
+}
+
 const tools = [
   {
     type: "function",
@@ -140,7 +159,7 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
       "Be truthful: do not claim code changes, tests, deployments, or external actions unless tools actually performed them.",
       "Use record_progress to checkpoint and continue. Use complete_job only when acceptance evidence is present.",
       "Request human approval before production deployment, destructive changes, spending, or undocumented decisions.",
-      "This worker currently exposes progress, completion, and approval tools only; it cannot edit repositories or deploy.",
+      "This worker exposes read-only GitHub inspection only when configured. It cannot edit repositories, run tests, or deploy.",
     ].join(" "),
     input: JSON.stringify({ task: job.input, previousCheckpoint: checkpoint }),
     tools,
@@ -165,6 +184,10 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
   if (!call?.name || !call.arguments || !call.call_id) throw new Error("Model response did not contain a supported function call.");
   const args = JSON.parse(call.arguments) as Record<string, unknown>;
   const responseId = payload.id ?? null;
+  if (call.name === "github_read_file" && typeof args.path === "string") {
+    const content = await githubContents(args.path);
+    return { kind: "continue", note: `GitHub read result for ${args.path}:\\n${content}`, responseId };
+  }
   if (call.name === "record_progress" && typeof args.note === "string") {
     return { kind: "continue", note: args.note, responseId };
   }
