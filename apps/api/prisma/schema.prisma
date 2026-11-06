@@ -494,6 +494,7 @@ model AgentJob {
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
   events          AgentJobEvent[]
+  toolPlans       AgentToolPlan[]
 
   @@index([status, availableAt, createdAt], map: "agent_jobs_claim_idx")
   @@index([leaseExpiresAt], map: "agent_jobs_lease_idx")
@@ -510,4 +511,64 @@ model AgentJobEvent {
 
   @@index([jobId, createdAt], map: "agent_job_events_job_time_idx")
   @@map("agent_job_events")
+}
+
+
+model AgentToolPlan {
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobId                 String              @map("job_id") @db.Uuid
+  version               Int
+  registryVersion       String              @map("registry_version") @db.VarChar(80)
+  brief                 Json                @db.JsonB
+  plan                  Json                @db.JsonB
+  status                String              @default("draft") @db.VarChar(24)
+  estimatedMonthlyUsd   Float?              @map("estimated_monthly_usd")
+  currency              String              @default("USD") @db.VarChar(3)
+  requiresHumanApproval Boolean             @default(true) @map("requires_human_approval")
+  reviewedByUserId      String?             @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt            DateTime?           @map("reviewed_at") @db.Timestamptz(6)
+  reviewNote            String?             @map("review_note") @db.VarChar(2000)
+  fingerprint           String              @db.VarChar(64)
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime            @default(now()) @map("updated_at") @db.Timestamptz(6)
+  job                   AgentJob            @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  events                AgentToolPlanEvent[]
+
+  @@unique([jobId, version])
+  @@unique([jobId, fingerprint])
+  @@index([status, createdAt])
+  @@index([jobId, createdAt])
+  @@map("agent_tool_plans")
+}
+
+model AgentToolPlanEvent {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  planId      String        @map("plan_id") @db.Uuid
+  eventType   String        @map("event_type") @db.VarChar(80)
+  actorUserId String?       @map("actor_user_id") @db.Uuid
+  payload     Json          @default("{}") @db.JsonB
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  plan        AgentToolPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([planId, createdAt])
+  @@map("agent_tool_plan_events")
+}
+
+model AgentToolCapability {
+  id                 String   @id @default(uuid()) @db.Uuid
+  capabilityId       String   @map("capability_id") @db.VarChar(120)
+  provider           String   @db.VarChar(120)
+  version            String   @db.VarChar(80)
+  metadata           Json     @db.JsonB
+  sourceUrl          String?  @map("source_url") @db.VarChar(2000)
+  pricingUrl         String?  @map("pricing_url") @db.VarChar(2000)
+  termsUrl           String?  @map("terms_url") @db.VarChar(2000)
+  region             String?  @db.VarChar(80)
+  evidenceVerifiedAt DateTime? @map("evidence_verified_at") @db.Timestamptz(6)
+  enabled            Boolean  @default(false)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([capabilityId, version])
+  @@index([provider, enabled])
+  @@map("agent_tool_capabilities")
 }
