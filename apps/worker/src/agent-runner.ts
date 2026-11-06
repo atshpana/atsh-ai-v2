@@ -71,11 +71,15 @@ async function claimJob(): Promise<Job | null> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    await client.query(
+      "UPDATE agent_jobs SET status='failed', last_error='Worker lease expired after maximum attempts', completed_at=NOW(), lease_owner=NULL, lease_expires_at=NULL, updated_at=NOW() WHERE status='running' AND lease_expires_at < NOW() AND attempts >= max_attempts",
+    );
     const found = await client.query<Job>(
       `SELECT id, input, attempts, max_attempts, last_response_id
          FROM agent_jobs
-        WHERE (status = 'queued' AND available_at <= NOW() AND attempts < max_attempts)
-           OR (status = 'running' AND lease_expires_at < NOW())
+        WHERE ((status = 'queued' AND available_at <= NOW())
+           OR (status = 'running' AND lease_expires_at < NOW()))
+          AND attempts < max_attempts
         ORDER BY created_at
         FOR UPDATE SKIP LOCKED
         LIMIT 1`,
