@@ -36,3 +36,8 @@ Insert a row into `agent_jobs` with a JSON `input` containing a task description
 - `AGENT_MAX_OUTPUT_TOKENS` bounds each model response.
 - `max_attempts` bounds retries per job.
 - A bounded retry/turn policy prevents accidental infinite API spend. “Continue until completion” means durable resumability, not an unlimited or unmetered loop.
+
+## n8n integration
+- A guarded REST adapter supports workflow discovery, inactive draft creation/update, and execution evidence listing.
+- Node type/version validation requires a dated, instance-specific catalog; credentials are references to existing IDs only.
+- The adapter does not activate workflows, create credentials, install packages, or perform production deployment. See `N8N_INTEGRATION.md`.
