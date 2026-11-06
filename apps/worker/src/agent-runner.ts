@@ -87,6 +87,7 @@ const tools = [
             allowedCostClasses: { type: ["array", "null"], items: { type: "string", enum: ["free", "existing_subscription", "usage_based", "new_subscription", "contract"] } },
             dataSensitivity: { type: ["string", "null"], enum: ["public", "internal", "confidential", "regulated", null] }
           },
+          required: ["maxMonthlySpendUsd", "approvedProviders", "allowedCostClasses", "dataSensitivity"],
           additionalProperties: false
         }
       },
