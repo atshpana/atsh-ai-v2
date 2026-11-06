@@ -82,10 +82,10 @@ const tools = [
         constraints: {
           type: "object",
           properties: {
-            maxMonthlySpendUsd: { type: "number" },
-            approvedProviders: { type: "array", items: { type: "string" } },
-            allowedCostClasses: { type: "array", items: { type: "string", enum: ["free", "existing_subscription", "usage_based", "new_subscription", "contract"] } },
-            dataSensitivity: { type: "string", enum: ["public", "internal", "confidential", "regulated"] }
+            maxMonthlySpendUsd: { type: ["number", "null"] },
+            approvedProviders: { type: ["array", "null"], items: { type: "string" } },
+            allowedCostClasses: { type: ["array", "null"], items: { type: "string", enum: ["free", "existing_subscription", "usage_based", "new_subscription", "contract"] } },
+            dataSensitivity: { type: ["string", "null"], enum: ["public", "internal", "confidential", "regulated", null] }
           },
           additionalProperties: false
         }
@@ -248,7 +248,7 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
     if (!kinds.includes(brief.kind) || !Array.isArray(brief.requirements) || brief.requirements.some((item) => typeof item !== "string") || !brief.constraints || typeof brief.constraints !== "object" || Array.isArray(brief.constraints)) {
       throw new Error("Invalid project brief supplied to tool planner.");
     }
-    const plan = planTools(brief);
+    const rawConstraints = brief.constraints as unknown as Record<string, unknown>;\n    const constraints = Object.fromEntries(Object.entries(rawConstraints).filter(([, value]) => value !== null));\n    const plan = planTools({ ...brief, constraints });
     return { kind: "continue", note: "Project tool plan (planning only):\n" + JSON.stringify(plan), responseId };
   }
   if (call.name === "github_read_file" && typeof args.path === "string") {
