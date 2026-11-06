@@ -60,9 +60,11 @@ The owner approved **Option A: Customer is the commercial account**. An individu
 
 The current unique `Customer.userId` is insufficient for multi-user business accounts. The account-model blocker is resolved, and the next schema change should replace this one-to-one link with explicit membership while preserving Customer as the owner of commercial records.
 
-### Blocking decision B — staff identity provider
+### Decision B — staff identity provider
 
-Managed identity for internal staff is approved as a direction. Cognito Lite is only the leading candidate to test, not an approved vendor. The staff-only proof of concept must validate TOTP, OIDC issuer/audience/signature, JWKS rotation, session/logout/revocation, disabled-user denial and acceptable branded login before provider selection.
+**Owner decision recorded 31 October 2026:** Amazon Cognito is approved for internal ATSH staff sign-in, with Cognito Lite as the initial feature plan and TOTP MFA. This approval is limited to staff authentication; it does not select Cognito for customer-portal identity or workload/agent identity. AWS region, user-pool configuration, callback/logout URLs, session settings and production credentials remain to be configured.
+
+The staff-only proof of concept is now a technical acceptance gate, not a vendor-selection exercise. It must validate explicit Lite tier selection, TOTP enrollment/challenge/recovery, OIDC issuer/audience/signature verification, JWKS rotation, secure session/logout/revocation, staff disable/revocation, wrong-issuer/audience and expired-token denial, and acceptable branded login. Do not enable protected business routes until these tests pass.
 
 ### Separate unresolved decisions
 
@@ -74,7 +76,7 @@ Managed identity for internal staff is approved as a direction. Cognito Lite is 
 ## 5. Safe implementation order
 
 1. Owner resolves customer account semantics; record the decision.
-2. Run staff-only identity-provider proof of concept; owner selects the provider.
+2. Run the staff-only Amazon Cognito Lite proof of concept and pass the documented acceptance criteria.
 3. Finalize the provider-neutral human identity mapping and session boundary.
 4. Implement trusted token/session verification in NestJS; derive request principal only from verified credentials.
 5. Implement and test customer membership/ownership boundary before customer business APIs.
@@ -88,7 +90,8 @@ Managed identity for internal staff is approved as a direction. Cognito Lite is 
 - Reconciliation: **Designed / documented**.
 - Prisma schema changes: **Not started**.
 - Migrations and database: **Not started**.
-- Authentication provider and sessions: **Not started**.
+- Staff provider decision: **Amazon Cognito Lite approved for staff sign-in; PoC/configuration not started**.
+- Authentication sessions and trusted runtime principal verification: **Not started**.
 - Runtime principal verification: **Not started**.
 - Customer membership and tenant isolation: **Blocked on account-model decision**.
 - Workload/agent runtime identity and tool broker: **Not started; runtime/provider decisions remain open**.
