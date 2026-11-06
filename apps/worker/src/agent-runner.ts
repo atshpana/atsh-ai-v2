@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
+import { planTools, type ProjectBrief, type ProjectKind } from "./tool-orchestrator.js";
 
 type Job = {
   id: string;
@@ -68,6 +69,31 @@ async function githubContents(path: string): Promise<string> {
 }
 
 const tools = [
+  {
+    type: "function",
+    name: "plan_project_tools",
+    description: "Analyze a project brief and return a deterministic tool, integration, risk and cost plan. Planning only; never provisions or spends.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["website", "web_app", "mobile_app", "ecommerce", "ai_assistant", "automation", "custom_software"] },
+        requirements: { type: "array", items: { type: "string" } },
+        constraints: {
+          type: "object",
+          properties: {
+            maxMonthlySpendUsd: { type: "number" },
+            approvedProviders: { type: "array", items: { type: "string" } },
+            allowedCostClasses: { type: "array", items: { type: "string", enum: ["free", "existing_subscription", "usage_based", "new_subscription", "contract"] } },
+            dataSensitivity: { type: "string", enum: ["public", "internal", "confidential", "regulated"] }
+          },
+          additionalProperties: false
+        }
+      },
+      required: ["kind", "requirements", "constraints"],
+      additionalProperties: false
+    }
+  },
   {
     type: "function",
     name: "github_read_file",
@@ -192,6 +218,7 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
       "Use record_progress to checkpoint and continue. Use complete_job only when acceptance evidence is present.",
       "Request human approval before production deployment, destructive changes, spending, or undocumented decisions.",
       "This worker exposes read-only GitHub inspection only when configured. It cannot edit repositories, run tests, or deploy.",
+      "When the task contains a project brief or asks which tools/integrations are needed, call plan_project_tools first. Explain its plan and approval gates; never claim tools were provisioned or connected.",
     ].join(" "),
     input: JSON.stringify({ task: job.input, previousCheckpoint: checkpoint }),
     tools,
@@ -215,6 +242,15 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
   if (!call?.name || !call.arguments || !call.call_id) throw new Error("Model response did not contain a supported function call.");
   const args = JSON.parse(call.arguments) as Record<string, unknown>;
   const responseId = payload.id ?? null;
+  if (call.name === "plan_project_tools") {
+    const brief = args as unknown as ProjectBrief;
+    const kinds: ProjectKind[] = ["website", "web_app", "mobile_app", "ecommerce", "ai_assistant", "automation", "custom_software"];
+    if (!kinds.includes(brief.kind) || !Array.isArray(brief.requirements) || brief.requirements.some((item) => typeof item !== "string") || !brief.constraints || typeof brief.constraints !== "object" || Array.isArray(brief.constraints)) {
+      throw new Error("Invalid project brief supplied to tool planner.");
+    }
+    const plan = planTools(brief);
+    return { kind: "continue", note: "Project tool plan (planning only):\n" + JSON.stringify(plan), responseId };
+  }
   if (call.name === "github_read_file" && typeof args.path === "string") {
     const content = await githubContents(args.path);
     return { kind: "continue", note: `GitHub read result for ${args.path}:\\n${content}`, responseId };
