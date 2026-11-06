@@ -161,14 +161,15 @@ function requiredCapabilities(requirements: string[]): Set<string> {
 }
 
 function approvalReason(tool: ToolCapability, brief: ProjectBrief): string | undefined {
-  if (!tool.enabled) return "Capability is disabled pending provider, legal, security and commercial verification.";
-  if (tool.risk === "critical") return "Critical-risk integration requires security and business approval.";
-  if (tool.costClass === "new_subscription" || tool.costClass === "contract") return "New subscription or contract requires explicit purchasing approval.";
-  if (tool.estimatedMonthlyUsd === null && tool.costClass === "usage_based") return "Usage cost is unknown; set a budget and obtain an estimate before activation.";
-  if (brief.constraints?.approvedProviders && !brief.constraints.approvedProviders.includes(tool.provider)) return "Provider is not on the project's approved-provider list.";
-  if (brief.constraints?.allowedCostClasses && !brief.constraints.allowedCostClasses.includes(tool.costClass)) return "Cost class is outside the project's allowed policy.";
-  if (brief.constraints?.dataSensitivity === "regulated" && tool.risk !== "low") return "Regulated data requires a separate compliance and security assessment.";
-  return undefined;
+  const reasons: string[] = [];
+  if (!tool.enabled) reasons.push("Capability is disabled pending provider, legal, security and commercial verification.");
+  if (tool.risk === "critical") reasons.push("Critical-risk integration requires security and business approval.");
+  if (tool.costClass === "new_subscription" || tool.costClass === "contract") reasons.push("New subscription or contract requires explicit purchasing approval.");
+  if (tool.estimatedMonthlyUsd === null && tool.costClass === "usage_based") reasons.push("Usage cost is unknown; set a budget and obtain an estimate before activation.");
+  if (brief.constraints?.approvedProviders && !brief.constraints.approvedProviders.includes(tool.provider)) reasons.push("Provider is not on the project's approved-provider list.");
+  if (brief.constraints?.allowedCostClasses && !brief.constraints.allowedCostClasses.includes(tool.costClass)) reasons.push("Cost class is outside the project's allowed policy.");
+  if (brief.constraints?.dataSensitivity === "regulated" && tool.risk !== "low") reasons.push("Regulated data requires a separate compliance and security assessment.");
+  return reasons.length ? reasons.join(" ") : undefined;
 }
 
 export function planTools(brief: ProjectBrief, registry: readonly ToolCapability[] = capabilityRegistry): ToolPlan {
