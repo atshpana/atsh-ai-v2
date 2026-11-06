@@ -6,7 +6,7 @@ This is a background process. It does not serve HTTP and must not be assigned a 
 
 - Create a separate Application resource inside the existing ATSH AI Factory project/environment.
 - Source repository: `atshpana/atsh-ai-v2`.
-- Deployment branch: `feature/agent-worker-deployable` for review/testing only. Use the approved release branch after PR review and merge.
+- Deployment branch: use the approved, merged release branch only. Do not deploy a feature or pull-request branch.
 - Build pack: Dockerfile.
 - Dockerfile location: `/Dockerfile.worker` (repository root).
 - Base directory: repository root (`/`).
