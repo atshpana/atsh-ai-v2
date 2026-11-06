@@ -249,8 +249,11 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
     if (!kinds.includes(brief.kind) || !Array.isArray(brief.requirements) || brief.requirements.some((item) => typeof item !== "string") || !brief.constraints || typeof brief.constraints !== "object" || Array.isArray(brief.constraints)) {
       throw new Error("Invalid project brief supplied to tool planner.");
     }
-    const rawConstraints = brief.constraints as unknown as Record<string, unknown>;\n    const constraints = Object.fromEntries(Object.entries(rawConstraints).filter(([, value]) => value !== null));\n    const plan = planTools({ ...brief, constraints });
-    return { kind: "continue", note: "Project tool plan (planning only):\n" + JSON.stringify(plan), responseId };
+    const rawConstraints = brief.constraints as unknown as Record<string, unknown>;
+    const constraints = Object.fromEntries(Object.entries(rawConstraints).filter(([, value]) => value !== null));
+    const plan = planTools({ ...brief, constraints });
+    return { kind: "continue", note: "Project tool plan (planning only):
+" + JSON.stringify(plan), responseId };
   }
   if (call.name === "github_read_file" && typeof args.path === "string") {
     const content = await githubContents(args.path);
@@ -377,7 +380,8 @@ async function processJob(job: Job) {
 }
 
 async function main() {
-  process.stdout.write(`ATSH AI agent worker started: ${workerId}\n`);
+  process.stdout.write(`ATSH AI agent worker started: ${workerId}
+`);
   let stopping = false;
   const stop = () => { stopping = true; };
   process.on("SIGINT", stop);
@@ -389,16 +393,19 @@ async function main() {
       else await new Promise((resolve) => setTimeout(resolve, pollMs));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown polling error";
-      process.stderr.write(`Worker loop error: ${message}\n`);
+      process.stderr.write(`Worker loop error: ${message}
+`);
       await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs * 2, 15000)));
     }
   }
   await pool.end();
-  process.stdout.write("ATSH AI agent worker stopped cleanly.\n");
+  process.stdout.write("ATSH AI agent worker stopped cleanly.
+");
 }
 
 void main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : "Worker startup failed";
-  process.stderr.write(`${message}\n`);
+  process.stderr.write(`${message}
+`);
   process.exitCode = 1;
 });
