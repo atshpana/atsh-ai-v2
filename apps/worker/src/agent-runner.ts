@@ -224,7 +224,9 @@ async function persistToolPlan(job: Job, brief: ProjectBrief, plan: ReturnType<t
       "SELECT COALESCE(MAX(version), 0) + 1 AS version FROM agent_tool_plans WHERE job_id = $1",
       [job.id],
     );
-    const version = versionResult.rows[0].version;
+    const versionRow = versionResult.rows[0];
+    if (!versionRow) throw new Error("Unable to determine the next tool plan version.");
+    const version = versionRow.version;
     const inserted = await client.query<{ id: string; version: number; status: string }>(
       `INSERT INTO agent_tool_plans
         (job_id, version, registry_version, brief, plan, status, estimated_monthly_usd,
@@ -303,8 +305,34 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
       throw new Error("Invalid project brief supplied to tool planner.");
     }
     const rawConstraints = brief.constraints as unknown as Record<string, unknown>;
-    const constraints = Object.fromEntries(Object.entries(rawConstraints).filter(([, value]) => value !== null));
-    const plan = planTools({ ...brief, constraints });
+    const constraints: ProjectBrief["constraints"] = {};
+    if (rawConstraints.maxMonthlySpendUsd !== null && rawConstraints.maxMonthlySpendUsd !== undefined) {
+      if (typeof rawConstraints.maxMonthlySpendUsd !== "number" || !Number.isFinite(rawConstraints.maxMonthlySpendUsd) || rawConstraints.maxMonthlySpendUsd < 0) {
+        throw new Error("Invalid maxMonthlySpendUsd in project brief.");
+      }
+      constraints.maxMonthlySpendUsd = rawConstraints.maxMonthlySpendUsd;
+    }
+    if (rawConstraints.approvedProviders !== null && rawConstraints.approvedProviders !== undefined) {
+      if (!Array.isArray(rawConstraints.approvedProviders) || rawConstraints.approvedProviders.some((item) => typeof item !== "string")) {
+        throw new Error("Invalid approvedProviders in project brief.");
+      }
+      constraints.approvedProviders = rawConstraints.approvedProviders as string[];
+    }
+    if (rawConstraints.allowedCostClasses !== null && rawConstraints.allowedCostClasses !== undefined) {
+      const allowed = ["free", "existing_subscription", "usage_based", "new_subscription", "contract"];
+      if (!Array.isArray(rawConstraints.allowedCostClasses) || rawConstraints.allowedCostClasses.some((item) => typeof item !== "string" || !allowed.includes(item))) {
+        throw new Error("Invalid allowedCostClasses in project brief.");
+      }
+      constraints.allowedCostClasses = rawConstraints.allowedCostClasses as ProjectBrief["constraints"] extends { allowedCostClasses?: infer T } ? NonNullable<T> : never;
+    }
+    if (rawConstraints.dataSensitivity !== null && rawConstraints.dataSensitivity !== undefined) {
+      const sensitivity = ["public", "internal", "confidential", "regulated"];
+      if (typeof rawConstraints.dataSensitivity !== "string" || !sensitivity.includes(rawConstraints.dataSensitivity)) {
+        throw new Error("Invalid dataSensitivity in project brief.");
+      }
+      constraints.dataSensitivity = rawConstraints.dataSensitivity as NonNullable<ProjectBrief["constraints"]>["dataSensitivity"];
+    }
+    const plan = planTools({ kind: brief.kind, requirements: brief.requirements, constraints });
     return { kind: "continue", note: "Project tool plan (planning only):\n" + JSON.stringify(plan), responseId };
   }
   if (call.name === "github_read_file" && typeof args.path === "string") {
