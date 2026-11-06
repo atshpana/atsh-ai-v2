@@ -411,10 +411,10 @@ async function requeue(job: Job, reason: string) {
   // must not emit a retry event or overwrite the new owner's state.
   const result = await pool.query(
     `WITH changed AS (
-       UPDATE agent_jobs SET status = $3, last_error = $4,
+       UPDATE agent_jobs SET status = $3::varchar, last_error = $4::text,
          available_at = NOW() + (LEAST(300, POWER(2, attempts)) * INTERVAL '1 second'),
          lease_owner = NULL, lease_expires_at = NULL, updated_at = NOW(),
-         completed_at = CASE WHEN $3 = 'failed' THEN NOW() ELSE NULL END
+         completed_at = CASE WHEN $3::varchar = 'failed' THEN NOW() ELSE NULL END
        WHERE id = $1 AND lease_owner = $2 AND status = 'running'
        RETURNING id
      )
