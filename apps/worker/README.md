@@ -23,7 +23,7 @@ The only model tools are `record_progress`, `complete_job`, and `request_human_a
 Never commit API keys or database credentials.
 
 ## Setup
-1. Review `migrations/001_agent_jobs.sql` and apply it manually to the new ATSH AI PostgreSQL database.
+1. Review `apps/api/prisma/migrations/20261106000000_agent_jobs/migration.sql` and apply it manually to the new ATSH AI PostgreSQL database.
 2. Install workspace dependencies from the repository root.
 3. Set `DATABASE_URL`, `OPENAI_API_KEY`, and optionally `OPENAI_MODEL`.
 4. Run `npm run build --workspace @atsh/worker` then `npm run start --workspace @atsh/worker`.
