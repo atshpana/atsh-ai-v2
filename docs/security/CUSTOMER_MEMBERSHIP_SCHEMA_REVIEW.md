@@ -15,3 +15,14 @@ Not implemented or decided: customer role catalogue and permission mapping; who 
 Next validation: Prisma schema/client CI; review generated SQL preview without applying it; add lifecycle constraints after policy approval; implement audited transition services; add pending/suspended/removed and cross-customer denial tests; backfill legacy links only after conflict analysis. Keep customer business APIs closed until verified authentication and server-side ownership authorization are implemented.
 
 No customer authentication, authorization, tenant isolation, invitation flow or production migration is claimed complete by this schema foundation.
+
+## Lifecycle transition policy draft
+
+The API now has a pure transition validator with this proposed state graph:
+
+- INVITED → ACTIVE or REMOVED
+- ACTIVE → SUSPENDED or REMOVED
+- SUSPENDED → ACTIVE or REMOVED
+- REMOVED → no further state
+
+This validator checks state-machine validity only. It does not authenticate or authorize the actor, persist the change, set lifecycle timestamps, or emit an AuditEvent. Those remain requirements for the eventual transactional service. The actor permissions for invite, accept, suspend, remove and reinstate are not yet defined, so no lifecycle endpoint is exposed.
