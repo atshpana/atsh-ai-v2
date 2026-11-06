@@ -8,16 +8,17 @@ const catalog: N8nNodeCatalogSnapshot = {
   source: "instance_export",
   nodes: [{ type: "n8n-nodes-base.manualTrigger", supportedVersions: [1] }],
 };
+const workflowNode = { id: "node-1", name: "Manual Trigger", type: "n8n-nodes-base.manualTrigger", typeVersion: 1, position: [0, 0] as [number, number], parameters: {} };
 const workflow: WorkflowDefinition = {
   name: "ATSH draft test",
-  nodes: [{ id: "node-1", name: "Manual Trigger", type: "n8n-nodes-base.manualTrigger", typeVersion: 1, position: [0, 0], parameters: {} }],
+  nodes: [workflowNode],
   connections: {},
 };
 
 test("validates node types and versions against a dated instance catalog", () => {
   assert.doesNotThrow(() => validateWorkflow(workflow, catalog));
-  assert.throws(() => validateWorkflow({ ...workflow, nodes: [{ ...workflow.nodes[0], typeVersion: 2 }] }, catalog), /Unsupported version/);
-  assert.throws(() => validateWorkflow({ ...workflow, nodes: [{ ...workflow.nodes[0], type: "unknown" }] }, catalog), /not in the verified instance catalog/);
+  assert.throws(() => validateWorkflow({ ...workflow, nodes: [{ ...workflowNode, typeVersion: 2 }] }, catalog), /Unsupported version/);
+  assert.throws(() => validateWorkflow({ ...workflow, nodes: [{ ...workflowNode, type: "unknown" }] }, catalog), /not in the verified instance catalog/);
 });
 
 test("createDraft sends no activation flag and records an audit event", async () => {
