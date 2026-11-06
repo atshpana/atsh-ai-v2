@@ -14,6 +14,13 @@ enum UserStatus {
   DISABLED
 }
 
+enum CustomerMembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
 enum CatalogStatus {
   DRAFT
   PUBLISHED
@@ -88,7 +95,9 @@ model User {
   status                   UserStatus        @default(INVITED)
   createdAt                DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
-  customerProfile          Customer?
+  customerProfile          Customer? // Legacy one-to-one link; retain only until an approved backfill/removal migration.
+  customerMemberships      CustomerMembership[]
+  invitedCustomerMemberships CustomerMembership[] @relation("CustomerMembershipInviter")
   userRoles                UserRole[]
   grantedRoleAssignments   UserRole[]        @relation("UserRoleGrantor")
   auditEvents              AuditEvent[]      @relation("AuditActor")
@@ -166,11 +175,52 @@ model Customer {
   createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
   user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization Organization?
+  memberships CustomerMembership[]
   requests    ServiceRequest[]
 
   @@index([email])
   @@index([phone])
   @@map("customers")
+}
+
+
+model Organization {
+  id          String   @id @default(uuid()) @db.Uuid
+  customerId  String   @unique @map("customer_id") @db.Uuid
+  name        String   @db.VarChar(180)
+  legalName   String?  @map("legal_name") @db.VarChar(220)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@map("organizations")
+}
+
+// Canonical account-membership relation for both individual and business Customer accounts.
+// For business accounts, the optional Organization profile is reached through Customer;
+// do not create a second independent authorization path for Organization membership.
+model CustomerMembership {
+  id             String                   @id @default(uuid()) @db.Uuid
+  customerId     String                   @map("customer_id") @db.Uuid
+  userId         String                   @map("user_id") @db.Uuid
+  roleKey        String                   @map("role_key") @db.VarChar(80)
+  status         CustomerMembershipStatus @default(INVITED)
+  invitedById    String?                  @map("invited_by_id") @db.Uuid
+  invitedAt      DateTime?                @map("invited_at") @db.Timestamptz(6)
+  acceptedAt     DateTime?                @map("accepted_at") @db.Timestamptz(6)
+  suspendedAt    DateTime?                @map("suspended_at") @db.Timestamptz(6)
+  removedAt      DateTime?                @map("removed_at") @db.Timestamptz(6)
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+  customer       Customer                 @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  user           User                     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  invitedBy      User?                    @relation("CustomerMembershipInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([customerId, userId])
+  @@index([userId, status])
+  @@index([customerId, status])
+  @@map("customer_memberships")
 }
 
 model ServiceCategory {

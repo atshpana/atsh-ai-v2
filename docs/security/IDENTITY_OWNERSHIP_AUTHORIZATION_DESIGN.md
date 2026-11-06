@@ -36,7 +36,7 @@ This is a useful starting point but not a complete authorization model. In parti
 
 ## 3. Target conceptual relationship
 
-The logical data model names `Customer`, `Organization`, and `OrganizationMember` separately. It does not yet fully define whether Organization is the customer account itself, a legal entity beneath a customer account, or a grouping of multiple customer records. This is a blocking domain decision; do not silently encode one interpretation in Prisma.
+The owner approved Option A on 31 October 2026: Customer is the commercial account and sole ownership root; Organization is an optional one-to-one business profile attached to Customer. The implementation uses CustomerMembership as the single canonical User-to-Customer membership relation for both individual and business accounts. This avoids separate OrganizationMember and CustomerMembership authorization paths that could disagree.
 
 The following is the recommended conceptual shape, subject to that decision:
 
@@ -135,9 +135,7 @@ The data model must remain provider-neutral until the provider is selected. In e
 
 ## 8. Customer account model — Option A approved (31 October 2026)
 
-The logical model establishes that organizations can group customer users and projects, but the exact cardinality and account semantics are not sufficiently specified.
-
-Choose and document one of these models before Prisma changes:
+The owner approved Option A on 31 October 2026. The alternatives below are retained as historical decision context; Option A is the operative model and must not be treated as unresolved.
 
 ### Option A — Customer is the account
 - Every commercial customer has one Customer account.
@@ -158,7 +156,7 @@ Choose and document one of these models before Prisma changes:
 - Requests/projects/contracts must distinguish personal customer ownership from organization ownership.
 - Requires a defined model for sole traders, multiple contacts, and personal customers.
 
-**Implementation direction:** extend Customer as the account owner, add an optional one-to-one Organization profile for business accounts, and add OrganizationMember as the many-to-many user membership relation. A customer user must not gain access merely because they know an email, company name, or Customer ID. Membership status, role, invitation/activation, removal and audit behavior must be explicit.
+**Implementation direction (approved Option A):** Customer is the account owner; add an optional one-to-one Organization profile for business accounts; use CustomerMembership as the canonical many-to-many User-to-Customer relation. Business membership is resolved through Customer and its optional Organization profile. Do not introduce a second independent OrganizationMember authorization relation. A customer user must not gain access merely because they know an email, company name, or Customer ID. Membership status, role, invitation/activation, removal and audit behavior must be explicit.
 
 ## 9. Schema work blocked until decisions
 
@@ -224,3 +222,8 @@ The owner clarified that ATSH AI expects approximately 90% of routine operations
 The detailed provider-neutral model is documented in `docs/security/AI_FIRST_WORKFORCE_IDENTITY_MODEL.md`. It defines principal classes, verifiable workload identity, agent run attribution, least-privilege capabilities, permission ceilings, a server-side tool/action broker, n8n and worker boundaries, human approval gates for protected actions, audit requirements, provider evaluation implications, and security tests.
 
 This clarification does not approve a customer identity design, agent roster, schema, secret manager, runtime platform, or policy service. Amazon Cognito is separately approved for internal staff sign-in only; its feature plan and integration configuration remain open. It does not authorize credentials, integrations, API endpoints, migrations, or agent tool access. Human authentication remains a distinct concern from workload/agent authentication and ATSH authorization.
+
+
+## 9. Current implementation reconciliation
+
+The feature branch `feature/customer-membership-model` drafts `CustomerMembership` and optional `Organization` models in Prisma. The legacy `Customer.userId` field is retained temporarily for compatibility only and must not be used as an authorization path. No database migration has been applied. Role catalogue, invitation verification, lifecycle transition enforcement, audit events, runtime identity verification and cross-account authorization tests remain outstanding.

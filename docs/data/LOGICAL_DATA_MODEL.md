@@ -41,11 +41,11 @@ Permission evaluation is deny-by-default and server-side. A project grant cannot
 |---|---|---|
 | Customer | Customer profile | Optional User link; minimal contact/company details |
 | Organization | Customer company/account grouping | May own multiple customer users and projects |
-| OrganizationMember | User membership and role in organization | Unique organization/user membership |
+| CustomerMembership | Canonical User-to-Customer account membership for individuals and businesses | Unique customer/user pair; pending invitations grant no access; status and lifecycle timestamps; business membership resolves through the Customer's optional Organization profile |
 | ContactPreference | Preferred communication channel and consent | Versioned/dated consent evidence |
 | CustomerAddress | Billing/service address if required | Collect only when commercial/legal process requires |
 
-Customer portal queries must always scope by authenticated customer/organization membership and explicit project/product access.
+Customer portal queries must always scope by authenticated active CustomerMembership and explicit project/product access. Organization is an optional profile attached one-to-one to Customer; it is not a second ownership or authorization root. The Prisma implementation uses CustomerMembership as the single canonical membership relation for both individual and business accounts.
 
 ## 4. Public content and localization
 
