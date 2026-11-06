@@ -11,8 +11,8 @@ type Job = {
 
 type Decision =
   | { kind: "continue"; note: string; responseId: string | null }
-  | { kind: "complete"; result: unknown; responseId: string | null; callId: string }
-  | { kind: "approval"; reason: string; responseId: string | null; callId: string };
+  | { kind: "complete"; result: { summary: string; evidence: string[] }; responseId: string | null }
+  | { kind: "approval"; reason: string; responseId: string | null };
 
 const pollMs = Number(process.env.AGENT_POLL_INTERVAL_MS ?? 3000);
 const leaseMs = Number(process.env.AGENT_LEASE_MS ?? 120000);
@@ -48,7 +48,7 @@ const tools = [
     strict: true,
     parameters: {
       type: "object",
-      properties: { result: { type: "object", additionalProperties: true } },
+      properties: { result: { type: "object", properties: { summary: { type: "string" }, evidence: { type: "array", items: { type: "string" } } }, required: ["summary", "evidence"], additionalProperties: false } },
       required: ["result"],
       additionalProperties: false,
     },
@@ -74,7 +74,7 @@ async function claimJob(): Promise<Job | null> {
     const found = await client.query<Job>(
       `SELECT id, input, attempts, max_attempts, last_response_id
          FROM agent_jobs
-        WHERE (status = 'queued' AND available_at <= NOW())
+        WHERE (status = 'queued' AND available_at <= NOW() AND attempts < max_attempts)
            OR (status = 'running' AND lease_expires_at < NOW())
         ORDER BY created_at
         FOR UPDATE SKIP LOCKED
@@ -142,7 +142,6 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
     tools,
     tool_choice: "required",
   };
-  if (job.last_response_id) body.previous_response_id = job.last_response_id;
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -166,7 +165,8 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
     return { kind: "continue", note: args.note, responseId };
   }
   if (call.name === "complete_job" && args.result && typeof args.result === "object") {
-    return { kind: "complete", result: args.result, responseId };
+    if (typeof (args.result as { summary?: unknown }).summary !== "string" || !Array.isArray((args.result as { evidence?: unknown }).evidence) || (args.result as { evidence: unknown[] }).evidence.length === 0) throw new Error("Completion requires a summary and non-empty evidence list.");
+    return { kind: "complete", result: args.result as { summary: string; evidence: string[] }, responseId };
   }
   if (call.name === "request_human_approval" && typeof args.reason === "string") {
     return { kind: "approval", reason: args.reason, responseId };
@@ -262,7 +262,7 @@ async function processJob(job: Job) {
     }
     await saveCheckpoint(job.id, job.last_response_id, "Turn limit reached; safely yielding for the next worker claim.");
     await pool.query(
-      "UPDATE agent_jobs SET status='queued', lease_owner=NULL, lease_expires_at=NULL, available_at=NOW(), updated_at=NOW() WHERE id=$1 AND lease_owner=$2 AND status='running'",
+      "UPDATE agent_jobs SET status=CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'queued' END, lease_owner=NULL, lease_expires_at=NULL, available_at=NOW(), completed_at=CASE WHEN attempts >= max_attempts THEN NOW() ELSE NULL END, updated_at=NOW() WHERE id=$1 AND lease_owner=$2 AND status='running'",
       [job.id, workerId],
     );
   } catch (error) {
