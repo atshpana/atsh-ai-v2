@@ -14,16 +14,36 @@ type Decision =
   | { kind: "complete"; result: { summary: string; evidence: string[] }; responseId: string | null }
   | { kind: "approval"; reason: string; responseId: string | null };
 
-const pollMs = Number(process.env.AGENT_POLL_INTERVAL_MS ?? 3000);
-const leaseMs = Number(process.env.AGENT_LEASE_MS ?? 120000);
-const maxTurns = Number(process.env.AGENT_MAX_TURNS_PER_CLAIM ?? 8);
-const maxOutputTokens = Number(process.env.AGENT_MAX_OUTPUT_TOKENS ?? 1800);
-const model = process.env.OPENAI_MODEL;
+function positiveInteger(name: string, fallback: number, maximum: number): number {
+  const raw = process.env[name];
+  const value = raw === undefined || raw.trim() === "" ? fallback : Number(raw);
+  if (!Number.isSafeInteger(value) || value < 1 || value > maximum) {
+    throw new Error(`Invalid ${name}: expected an integer from 1 to ${maximum}.`);
+  }
+  return value;
+}
+
+const pollMs = positiveInteger("AGENT_POLL_INTERVAL_MS", 3000, 60000);
+const leaseMs = positiveInteger("AGENT_LEASE_MS", 120000, 3600000);
+const maxTurns = positiveInteger("AGENT_MAX_TURNS_PER_CLAIM", 8, 30);
+const maxOutputTokens = positiveInteger("AGENT_MAX_OUTPUT_TOKENS", 1800, 8000);
+const dbPoolSize = positiveInteger("AGENT_DB_POOL_SIZE", 4, 20);
+const model = process.env.OPENAI_MODEL?.trim();
+if (!model) throw new Error("OPENAI_MODEL is required.");
+if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required.");
+if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is required.");
 const workerId = process.env.AGENT_WORKER_ID ?? `worker-${randomUUID()}`;
+const githubRef = process.env.ATSH_GITHUB_REF ?? "implementation/bootstrap";
+if (process.env.GITHUB_TOKEN && process.env.ATSH_GITHUB_REPOSITORY !== "atshpana/atsh-ai-v2") {
+  throw new Error("GITHUB_TOKEN requires ATSH_GITHUB_REPOSITORY=atshpana/atsh-ai-v2.");
+}
+if (!/^[A-Za-z0-9._/-]{1,200}$/.test(githubRef) || githubRef.includes("..")) {
+  throw new Error("Invalid ATSH_GITHUB_REF.");
+}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: Number(process.env.AGENT_DB_POOL_SIZE ?? 4),
+  max: dbPoolSize,
   connectionTimeoutMillis: 5000,
   idleTimeoutMillis: 30000,
 });
@@ -36,7 +56,7 @@ async function githubContents(path: string): Promise<string> {
   if (githubRepository !== "atshpana/atsh-ai-v2") throw new Error("Repository is not in the worker allowlist.");
     const normalized = path.replace(/^\/+/, "");
   if (!normalized || normalized.split("/").some((part) => part === "..")) throw new Error("Invalid repository path.");
-  const response = await fetch(`https://api.github.com/repos/${githubRepository}/contents/${normalized}?ref=implementation/bootstrap`, {
+  const response = await fetch(`https://api.github.com/repos/${githubRepository}/contents/${normalized}?ref=${encodeURIComponent(githubRef)}`, {
     headers: { Authorization: `Bearer ${githubToken}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
     signal: AbortSignal.timeout(20000),
   });
@@ -184,8 +204,7 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
     signal: AbortSignal.timeout(90000),
   });
   if (!response.ok) {
-    const safeBody = (await response.text()).slice(0, 1000);
-    throw new Error(`OpenAI Responses API returned ${response.status}: ${safeBody}`);
+    throw new Error(`OpenAI Responses API returned HTTP ${response.status}.`);
   }
   const payload = await response.json() as {
     id?: string;
@@ -311,7 +330,6 @@ async function processJob(job: Job) {
 }
 
 async function main() {
-  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required.");
   process.stdout.write(`ATSH AI agent worker started: ${workerId}\n`);
   let stopping = false;
   const stop = () => { stopping = true; };
