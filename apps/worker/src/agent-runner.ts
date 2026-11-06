@@ -253,7 +253,8 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
   }
   if (call.name === "github_read_file" && typeof args.path === "string") {
     const content = await githubContents(args.path);
-    return { kind: "continue", note: `GitHub read result for ${args.path}:\\n${content}`, responseId };
+    return { kind: "continue", note: `GitHub read result for ${args.path}:
+${content}`, responseId };
   }
   if (call.name === "record_progress" && typeof args.note === "string") {
     return { kind: "continue", note: args.note, responseId };
@@ -334,7 +335,8 @@ async function requeue(job: Job, reason: string) {
       randomUUID(), JSON.stringify({ terminal, reason: reason.slice(0, 500) })],
   );
   if (result.rowCount !== 1) {
-    process.stderr.write(`Skipped stale retry for job ${job.id}: lease no longer owned.\\n`);
+    process.stderr.write(`Skipped stale retry for job ${job.id}: lease no longer owned.
+`);
   }
 }
 
