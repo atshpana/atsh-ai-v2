@@ -26,3 +26,10 @@ The API now has a pure transition validator with this proposed state graph:
 - REMOVED → no further state
 
 This validator checks state-machine validity only. It does not authenticate or authorize the actor, persist the change, set lifecycle timestamps, or emit an AuditEvent. Those remain requirements for the eventual transactional service. The actor permissions for invite, accept, suspend, remove and reinstate are not yet defined, so no lifecycle endpoint is exposed.
+
+
+## Transactional lifecycle service draft
+
+A framework-independent application service now coordinates each membership transition inside a unit-of-work transaction: load current membership, call an injected account-scoped authorizer, validate the state transition, update with an expected-current-status guard, and write the corresponding AuditEvent through the same transaction. A failed authorization, invalid transition, missing record, or concurrent status change prevents the audit write and update. The service intentionally does not expose HTTP routes and has no concrete Prisma adapter yet.
+
+The injected authorizer is a critical security boundary: it must accept only a verified principal from the eventual Cognito/OIDC validation layer and enforce the still-to-be-approved customer membership permissions. The service is not production authorization until that adapter and the Prisma transaction adapter are implemented and tested end-to-end. Unit tests cover successful audited acceptance, denied actor, invalid transition, missing membership, and concurrent update failure.
