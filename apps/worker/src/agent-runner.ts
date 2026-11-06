@@ -252,8 +252,7 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
     const rawConstraints = brief.constraints as unknown as Record<string, unknown>;
     const constraints = Object.fromEntries(Object.entries(rawConstraints).filter(([, value]) => value !== null));
     const plan = planTools({ ...brief, constraints });
-    return { kind: "continue", note: "Project tool plan (planning only):
-" + JSON.stringify(plan), responseId };
+    return { kind: "continue", note: "Project tool plan (planning only):\n" + JSON.stringify(plan), responseId };
   }
   if (call.name === "github_read_file" && typeof args.path === "string") {
     const content = await githubContents(args.path);
@@ -393,19 +392,16 @@ async function main() {
       else await new Promise((resolve) => setTimeout(resolve, pollMs));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown polling error";
-      process.stderr.write(`Worker loop error: ${message}
-`);
+      process.stderr.write(`Worker loop error: ${message}\n`);
       await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs * 2, 15000)));
     }
   }
   await pool.end();
-  process.stdout.write("ATSH AI agent worker stopped cleanly.
-");
+  process.stdout.write("ATSH AI agent worker stopped cleanly.\n");
 }
 
 void main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : "Worker startup failed";
-  process.stderr.write(`${message}
-`);
+  process.stderr.write(`${message}\n`);
   process.exitCode = 1;
 });
