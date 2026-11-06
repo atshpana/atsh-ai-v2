@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
-import { planTools, type ProjectBrief, type ProjectKind } from "./tool-orchestrator.js";
+import { planTools, type CostClass, type ProjectBrief, type ProjectKind } from "./tool-orchestrator.js";
 
 type Job = {
   id: string;
@@ -323,14 +323,14 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
       if (!Array.isArray(rawConstraints.allowedCostClasses) || rawConstraints.allowedCostClasses.some((item) => typeof item !== "string" || !allowed.includes(item))) {
         throw new Error("Invalid allowedCostClasses in project brief.");
       }
-      constraints.allowedCostClasses = rawConstraints.allowedCostClasses as ProjectBrief["constraints"] extends { allowedCostClasses?: infer T } ? NonNullable<T> : never;
+      constraints.allowedCostClasses = rawConstraints.allowedCostClasses as CostClass[];
     }
     if (rawConstraints.dataSensitivity !== null && rawConstraints.dataSensitivity !== undefined) {
       const sensitivity = ["public", "internal", "confidential", "regulated"];
       if (typeof rawConstraints.dataSensitivity !== "string" || !sensitivity.includes(rawConstraints.dataSensitivity)) {
         throw new Error("Invalid dataSensitivity in project brief.");
       }
-      constraints.dataSensitivity = rawConstraints.dataSensitivity as NonNullable<ProjectBrief["constraints"]>["dataSensitivity"];
+      constraints.dataSensitivity = rawConstraints.dataSensitivity as "public" | "internal" | "confidential" | "regulated";
     }
     const plan = planTools({ kind: brief.kind, requirements: brief.requirements, constraints });
     return { kind: "continue", note: "Project tool plan (planning only):\n" + JSON.stringify(plan), responseId };
