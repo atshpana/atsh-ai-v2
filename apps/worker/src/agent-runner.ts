@@ -1,5 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
+import { planTools, type ProjectBrief, type ProjectKind } from "./tool-orchestrator.js";
 
 type Job = {
   id: string;
@@ -14,21 +15,98 @@ type Decision =
   | { kind: "complete"; result: { summary: string; evidence: string[] }; responseId: string | null }
   | { kind: "approval"; reason: string; responseId: string | null };
 
-const pollMs = Number(process.env.AGENT_POLL_INTERVAL_MS ?? 3000);
-const leaseMs = Number(process.env.AGENT_LEASE_MS ?? 120000);
-const maxTurns = Number(process.env.AGENT_MAX_TURNS_PER_CLAIM ?? 8);
-const maxOutputTokens = Number(process.env.AGENT_MAX_OUTPUT_TOKENS ?? 1800);
-const model = process.env.OPENAI_MODEL;
+function positiveInteger(name: string, fallback: number, maximum: number): number {
+  const raw = process.env[name];
+  const value = raw === undefined || raw.trim() === "" ? fallback : Number(raw);
+  if (!Number.isSafeInteger(value) || value < 1 || value > maximum) {
+    throw new Error(`Invalid ${name}: expected an integer from 1 to ${maximum}.`);
+  }
+  return value;
+}
+
+const pollMs = positiveInteger("AGENT_POLL_INTERVAL_MS", 3000, 60000);
+const leaseMs = positiveInteger("AGENT_LEASE_MS", 120000, 3600000);
+const maxTurns = positiveInteger("AGENT_MAX_TURNS_PER_CLAIM", 8, 30);
+const maxOutputTokens = positiveInteger("AGENT_MAX_OUTPUT_TOKENS", 1800, 8000);
+const dbPoolSize = positiveInteger("AGENT_DB_POOL_SIZE", 4, 20);
+const model = process.env.OPENAI_MODEL?.trim();
+if (!model) throw new Error("OPENAI_MODEL is required.");
+if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required.");
+if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is required.");
 const workerId = process.env.AGENT_WORKER_ID ?? `worker-${randomUUID()}`;
+const githubRef = process.env.ATSH_GITHUB_REF ?? "implementation/bootstrap";
+if (process.env.GITHUB_TOKEN && process.env.ATSH_GITHUB_REPOSITORY !== "atshpana/atsh-ai-v2") {
+  throw new Error("GITHUB_TOKEN requires ATSH_GITHUB_REPOSITORY=atshpana/atsh-ai-v2.");
+}
+if (!/^[A-Za-z0-9._/-]{1,200}$/.test(githubRef) || githubRef.includes("..")) {
+  throw new Error("Invalid ATSH_GITHUB_REF.");
+}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: Number(process.env.AGENT_DB_POOL_SIZE ?? 4),
+  max: dbPoolSize,
   connectionTimeoutMillis: 5000,
   idleTimeoutMillis: 30000,
 });
 
+const githubRepository = process.env.ATSH_GITHUB_REPOSITORY ?? "";
+const githubToken = process.env.GITHUB_TOKEN;
+
+async function githubContents(path: string): Promise<string> {
+  if (!githubToken) throw new Error("GITHUB_TOKEN is required for repository inspection.");
+  if (githubRepository !== "atshpana/atsh-ai-v2") throw new Error("Repository is not in the worker allowlist.");
+    const normalized = path.replace(/^\/+/, "");
+  if (!normalized || normalized.split("/").some((part) => part === "..")) throw new Error("Invalid repository path.");
+  const response = await fetch(`https://api.github.com/repos/${githubRepository}/contents/${normalized}?ref=${encodeURIComponent(githubRef)}`, {
+    headers: { Authorization: `Bearer ${githubToken}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!response.ok) throw new Error(`GitHub read failed with status ${response.status}.`);
+  const payload = await response.json() as { type?: string; name?: string; path?: string; content?: string; encoding?: string; size?: number; download_url?: string | null } | Array<{ type?: string; name?: string; path?: string; size?: number }>;
+  if (Array.isArray(payload)) return JSON.stringify(payload.map(({ type, name, path: itemPath, size }) => ({ type, name, path: itemPath, size }))).slice(0, 12000);
+  if (payload.type !== "file" || payload.encoding !== "base64" || typeof payload.content !== "string") throw new Error("Requested path is not a readable text file.");
+    return Buffer.from(payload.content.replace(/\s/g, ""), "base64").toString("utf8").slice(0, 12000);
+}
+
 const tools = [
+  {
+    type: "function",
+    name: "plan_project_tools",
+    description: "Analyze a project brief and return a deterministic tool, integration, risk and cost plan. Planning only; never provisions or spends.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["website", "web_app", "mobile_app", "ecommerce", "ai_assistant", "automation", "custom_software"] },
+        requirements: { type: "array", items: { type: "string" } },
+        constraints: {
+          type: "object",
+          properties: {
+            maxMonthlySpendUsd: { type: ["number", "null"] },
+            approvedProviders: { type: ["array", "null"], items: { type: "string" } },
+            allowedCostClasses: { type: ["array", "null"], items: { type: "string", enum: ["free", "existing_subscription", "usage_based", "new_subscription", "contract"] } },
+            dataSensitivity: { type: ["string", "null"], enum: ["public", "internal", "confidential", "regulated", null] }
+          },
+          required: ["maxMonthlySpendUsd", "approvedProviders", "allowedCostClasses", "dataSensitivity"],
+          additionalProperties: false
+        }
+      },
+      required: ["kind", "requirements", "constraints"],
+      additionalProperties: false
+    }
+  },
+  {
+    type: "function",
+    name: "github_read_file",
+    description: "Read a text file or list a directory in the allowlisted ATSH AI repository. Read-only.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: { path: { type: "string" } },
+      required: ["path"],
+      additionalProperties: false,
+    },
+  },
   {
     type: "function",
     name: "record_progress",
@@ -126,6 +204,51 @@ async function heartbeat(jobId: string) {
   if (result.rowCount !== 1) throw new Error("Job lease was lost; refusing to continue.");
 }
 
+async function persistToolPlan(job: Job, brief: ProjectBrief, plan: ReturnType<typeof planTools>): Promise<{ id: string; version: number; status: string }> {
+  const registryVersion = "capability-registry-v1";
+  const canonical = JSON.stringify({ registryVersion, brief, plan });
+  const fingerprint = createHash("sha256").update(canonical).digest("hex");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const existing = await client.query<{ id: string; version: number; status: string }>(
+      "SELECT id, version, status FROM agent_tool_plans WHERE job_id = $1 AND fingerprint = $2",
+      [job.id, fingerprint],
+    );
+    if (existing.rows[0]) {
+      await client.query("COMMIT");
+      return existing.rows[0];
+    }
+    const versionResult = await client.query<{ version: number }>(
+      "SELECT COALESCE(MAX(version), 0) + 1 AS version FROM agent_tool_plans WHERE job_id = $1",
+      [job.id],
+    );
+    const version = versionResult.rows[0].version;
+    const inserted = await client.query<{ id: string; version: number; status: string }>(
+      `INSERT INTO agent_tool_plans
+        (job_id, version, registry_version, brief, plan, status, estimated_monthly_usd,
+         requires_human_approval, fingerprint)
+       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, 'draft', $6, $7, $8)
+       ON CONFLICT (job_id, fingerprint) DO UPDATE SET fingerprint = EXCLUDED.fingerprint
+       RETURNING id, version, status`,
+      [job.id, version, registryVersion, JSON.stringify(brief), JSON.stringify(plan),
+        plan.estimatedMonthlyUsd, plan.requiresHumanApproval, fingerprint],
+    );
+    const saved = inserted.rows[0];
+    await client.query(
+      "INSERT INTO agent_tool_plan_events (plan_id, event_type, payload) VALUES ($1, 'plan.created', $2::jsonb)",
+      [saved.id, JSON.stringify({ version: saved.version, registryVersion, fingerprint })],
+    );
+    await client.query("COMMIT");
+    return saved;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function askModel(job: Job, checkpoint: string): Promise<Decision> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is required; no model call was attempted.");
@@ -140,7 +263,8 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
       "Be truthful: do not claim code changes, tests, deployments, or external actions unless tools actually performed them.",
       "Use record_progress to checkpoint and continue. Use complete_job only when acceptance evidence is present.",
       "Request human approval before production deployment, destructive changes, spending, or undocumented decisions.",
-      "This worker currently exposes progress, completion, and approval tools only; it cannot edit repositories or deploy.",
+      "This worker exposes read-only GitHub inspection only when configured. It cannot edit repositories, run tests, or deploy.",
+      "When the task contains a project brief or asks which tools/integrations are needed, call plan_project_tools first. Explain its plan and approval gates; never claim tools were provisioned or connected.",
     ].join(" "),
     input: JSON.stringify({ task: job.input, previousCheckpoint: checkpoint }),
     tools,
@@ -153,8 +277,7 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
     signal: AbortSignal.timeout(90000),
   });
   if (!response.ok) {
-    const safeBody = (await response.text()).slice(0, 1000);
-    throw new Error(`OpenAI Responses API returned ${response.status}: ${safeBody}`);
+    throw new Error(`OpenAI Responses API returned HTTP ${response.status}.`);
   }
   const payload = await response.json() as {
     id?: string;
@@ -165,6 +288,22 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
   if (!call?.name || !call.arguments || !call.call_id) throw new Error("Model response did not contain a supported function call.");
   const args = JSON.parse(call.arguments) as Record<string, unknown>;
   const responseId = payload.id ?? null;
+  if (call.name === "plan_project_tools") {
+    const brief = args as unknown as ProjectBrief;
+    const kinds: ProjectKind[] = ["website", "web_app", "mobile_app", "ecommerce", "ai_assistant", "automation", "custom_software"];
+    if (!kinds.includes(brief.kind) || !Array.isArray(brief.requirements) || brief.requirements.some((item) => typeof item !== "string") || !brief.constraints || typeof brief.constraints !== "object" || Array.isArray(brief.constraints)) {
+      throw new Error("Invalid project brief supplied to tool planner.");
+    }
+    const rawConstraints = brief.constraints as unknown as Record<string, unknown>;
+    const constraints = Object.fromEntries(Object.entries(rawConstraints).filter(([, value]) => value !== null));
+    const plan = planTools({ ...brief, constraints });
+    return { kind: "continue", note: "Project tool plan (planning only):\n" + JSON.stringify(plan), responseId };
+  }
+  if (call.name === "github_read_file" && typeof args.path === "string") {
+    const content = await githubContents(args.path);
+    return { kind: "continue", note: `GitHub read result for ${args.path}:
+${content}`, responseId };
+  }
   if (call.name === "record_progress" && typeof args.note === "string") {
     return { kind: "continue", note: args.note, responseId };
   }
@@ -226,18 +365,27 @@ async function finish(jobId: string, status: "succeeded" | "waiting_approval", d
 
 async function requeue(job: Job, reason: string) {
   const terminal = job.attempts >= job.max_attempts;
-  await pool.query(
-    `UPDATE agent_jobs SET status = $3, last_error = $4,
-       available_at = NOW() + (LEAST(300, POWER(2, attempts)) * INTERVAL '1 second'),
-       lease_owner = NULL, lease_expires_at = NULL, updated_at = NOW(),
-       completed_at = CASE WHEN $3 = 'failed' THEN NOW() ELSE NULL END
-      WHERE id = $1 AND lease_owner = $2 AND status = 'running'`,
-    [job.id, workerId, terminal ? "failed" : "queued", reason.slice(0, 2000)],
+  // Update and append the event atomically. A worker whose lease was stolen
+  // must not emit a retry event or overwrite the new owner's state.
+  const result = await pool.query(
+    `WITH changed AS (
+       UPDATE agent_jobs SET status = $3, last_error = $4,
+         available_at = NOW() + (LEAST(300, POWER(2, attempts)) * INTERVAL '1 second'),
+         lease_owner = NULL, lease_expires_at = NULL, updated_at = NOW(),
+         completed_at = CASE WHEN $3 = 'failed' THEN NOW() ELSE NULL END
+       WHERE id = $1 AND lease_owner = $2 AND status = 'running'
+       RETURNING id
+     )
+     INSERT INTO agent_job_events (id, job_id, event_type, payload)
+     SELECT $5, id, 'job.retry_scheduled', $6::jsonb FROM changed
+     RETURNING job_id`,
+    [job.id, workerId, terminal ? "failed" : "queued", reason.slice(0, 2000),
+      randomUUID(), JSON.stringify({ terminal, reason: reason.slice(0, 500) })],
   );
-  await pool.query(
-    "INSERT INTO agent_job_events (id, job_id, event_type, payload) VALUES ($1, $2, 'job.retry_scheduled', $3::jsonb)",
-    [randomUUID(), job.id, JSON.stringify({ terminal, reason: reason.slice(0, 500) })],
-  );
+  if (result.rowCount !== 1) {
+    process.stderr.write(`Skipped stale retry for job ${job.id}: lease no longer owned.
+`);
+  }
 }
 
 async function processJob(job: Job) {
@@ -276,8 +424,8 @@ async function processJob(job: Job) {
 }
 
 async function main() {
-  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required.");
-  process.stdout.write(`ATSH AI agent worker started: ${workerId}\n`);
+  process.stdout.write(`ATSH AI agent worker started: ${workerId}
+`);
   let stopping = false;
   const stop = () => { stopping = true; };
   process.on("SIGINT", stop);
