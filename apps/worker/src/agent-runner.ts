@@ -34,7 +34,7 @@ const githubToken = process.env.GITHUB_TOKEN;
 async function githubContents(path: string): Promise<string> {
   if (!githubToken) throw new Error("GITHUB_TOKEN is required for repository inspection.");
   if (githubRepository !== "atshpana/atsh-ai-v2") throw new Error("Repository is not in the worker allowlist.");
-  const normalized = path.replace(/^\\/+|\\/+/g, "");
+    const normalized = path.replace(/^\/+/, "");
   if (!normalized || normalized.split("/").some((part) => part === "..")) throw new Error("Invalid repository path.");
   const response = await fetch(`https://api.github.com/repos/${githubRepository}/contents/${normalized}?ref=implementation/bootstrap`, {
     headers: { Authorization: `Bearer ${githubToken}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
@@ -44,7 +44,7 @@ async function githubContents(path: string): Promise<string> {
   const payload = await response.json() as { type?: string; name?: string; path?: string; content?: string; encoding?: string; size?: number; download_url?: string | null } | Array<{ type?: string; name?: string; path?: string; size?: number }>;
   if (Array.isArray(payload)) return JSON.stringify(payload.map(({ type, name, path: itemPath, size }) => ({ type, name, path: itemPath, size }))).slice(0, 12000);
   if (payload.type !== "file" || payload.encoding !== "base64" || typeof payload.content !== "string") throw new Error("Requested path is not a readable text file.");
-  return Buffer.from(payload.content.replace(/\\n/g, ""), "base64").toString("utf8").slice(0, 12000);
+    return Buffer.from(payload.content.replace(/\s/g, ""), "base64").toString("utf8").slice(0, 12000);
 }
 
 const tools = [
