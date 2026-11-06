@@ -259,7 +259,7 @@ async function persistToolPlan(job: Job, brief: ProjectBrief, plan: ReturnType<t
   }
 }
 
-async function askModel(job: Job, checkpoint: string): Promise<Decision> {
+async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Promise<Decision> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is required; no model call was attempted.");
   if (!model) throw new Error("OPENAI_MODEL must be explicitly configured; no model call was attempted.");
@@ -284,7 +284,7 @@ async function askModel(job: Job, checkpoint: string): Promise<Decision> {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(90000),
+    signal: signal ?? AbortSignal.timeout(90000),
   });
   if (!response.ok) {
     throw new Error(`OpenAI Responses API returned HTTP ${response.status}.`);
@@ -434,7 +434,27 @@ async function processJob(job: Job) {
   try {
     for (let turn = 0; turn < maxTurns; turn += 1) {
       await heartbeat(job.id);
-      const decision = await askModel(job, checkpoint);
+      const controller = new AbortController();
+      const heartbeatIntervalMs = Math.max(1000, Math.floor(leaseMs / 3));
+      let heartbeatFailure: Error | null = null;
+      let heartbeatInFlight = false;
+      const heartbeatTimer = setInterval(() => {
+        if (heartbeatInFlight || heartbeatFailure) return;
+        heartbeatInFlight = true;
+        void heartbeat(job.id)
+          .catch((error: unknown) => {
+            heartbeatFailure = error instanceof Error ? error : new Error("Heartbeat failed.");
+            controller.abort(heartbeatFailure);
+          })
+          .finally(() => { heartbeatInFlight = false; });
+      }, heartbeatIntervalMs);
+      let decision: Decision;
+      try {
+        decision = await askModel(job, checkpoint, controller.signal);
+        if (heartbeatFailure) throw heartbeatFailure;
+      } finally {
+        clearInterval(heartbeatTimer);
+      }
       if (decision.kind === "continue") {
         checkpoint = decision.note;
         await saveCheckpoint(job.id, decision.responseId, checkpoint);
