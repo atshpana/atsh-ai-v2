@@ -31,4 +31,4 @@ This is the durable job-control foundation, not yet the complete autonomous soft
 - n8n credentials and workflow contracts where required.
 
 ## Apply and run
-Review `apps/worker/apps/api/prisma/migrations/20261106000000_agent_jobs/migration.sql`, apply it manually to the new database, configure secrets, install workspace dependencies, build `@atsh/worker`, and run it under a process supervisor. Do not point it at a legacy database.
+Review `apps/api/prisma/migrations/20261106000000_agent_jobs/migration.sql`, apply it manually to the new database, configure secrets, install workspace dependencies, build `@atsh/worker`, and run it under a process supervisor. Do not point it at a legacy database.
