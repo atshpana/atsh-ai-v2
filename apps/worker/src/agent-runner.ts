@@ -280,18 +280,26 @@ async function finish(jobId: string, status: "succeeded" | "waiting_approval", d
 
 async function requeue(job: Job, reason: string) {
   const terminal = job.attempts >= job.max_attempts;
-  await pool.query(
-    `UPDATE agent_jobs SET status = $3, last_error = $4,
-       available_at = NOW() + (LEAST(300, POWER(2, attempts)) * INTERVAL '1 second'),
-       lease_owner = NULL, lease_expires_at = NULL, updated_at = NOW(),
-       completed_at = CASE WHEN $3 = 'failed' THEN NOW() ELSE NULL END
-      WHERE id = $1 AND lease_owner = $2 AND status = 'running'`,
-    [job.id, workerId, terminal ? "failed" : "queued", reason.slice(0, 2000)],
+  // Update and append the event atomically. A worker whose lease was stolen
+  // must not emit a retry event or overwrite the new owner's state.
+  const result = await pool.query(
+    `WITH changed AS (
+       UPDATE agent_jobs SET status = $3, last_error = $4,
+         available_at = NOW() + (LEAST(300, POWER(2, attempts)) * INTERVAL '1 second'),
+         lease_owner = NULL, lease_expires_at = NULL, updated_at = NOW(),
+         completed_at = CASE WHEN $3 = 'failed' THEN NOW() ELSE NULL END
+       WHERE id = $1 AND lease_owner = $2 AND status = 'running'
+       RETURNING id
+     )
+     INSERT INTO agent_job_events (id, job_id, event_type, payload)
+     SELECT $5, id, 'job.retry_scheduled', $6::jsonb FROM changed
+     RETURNING job_id`,
+    [job.id, workerId, terminal ? "failed" : "queued", reason.slice(0, 2000),
+      randomUUID(), JSON.stringify({ terminal, reason: reason.slice(0, 500) })],
   );
-  await pool.query(
-    "INSERT INTO agent_job_events (id, job_id, event_type, payload) VALUES ($1, $2, 'job.retry_scheduled', $3::jsonb)",
-    [randomUUID(), job.id, JSON.stringify({ terminal, reason: reason.slice(0, 500) })],
-  );
+  if (result.rowCount !== 1) {
+    process.stderr.write(`Skipped stale retry for job ${job.id}: lease no longer owned.\\n`);
+  }
 }
 
 async function processJob(job: Job) {
