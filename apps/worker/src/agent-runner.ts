@@ -267,6 +267,8 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is required; no model call was attempted.");
   if (!model) throw new Error("OPENAI_MODEL must be explicitly configured; no model call was attempted.");
+  const alreadyReadGitHub = checkpoint.includes("GitHub read result for ");
+  const availableTools = alreadyReadGitHub ? tools.filter((tool) => tool.name !== "github_read_file") : tools;
   const body: Record<string, unknown> = {
     model,
     store: false,
@@ -279,9 +281,10 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
       "Request human approval before production deployment, destructive changes, spending, or undocumented decisions.",
       "This worker exposes read-only GitHub inspection only when configured. It cannot edit repositories, run tests, or deploy.",
       "When the task contains a project brief or asks which tools/integrations are needed, call plan_project_tools first. Explain its plan and approval gates; never claim tools were provisioned or connected.",
+      ...(alreadyReadGitHub ? ["A GitHub file has already been read and its complete available content is included in previousCheckpoint. Do not inspect GitHub again; use that evidence and call complete_job with a concise summary and evidence."] : []),
     ].join(" "),
     input: JSON.stringify({ task: job.input, previousCheckpoint: checkpoint }),
-    tools,
+    tools: availableTools,
     tool_choice: "required",
   };
   const response = await fetch("https://api.openai.com/v1/responses", {
