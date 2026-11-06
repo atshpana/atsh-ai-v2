@@ -472,3 +472,42 @@ model AuditEvent {
   @@index([action, createdAt])
   @@map("audit_events")
 }
+
+
+model AgentJob {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  status          String          @default("queued") @db.VarChar(24)
+  input           Json            @db.JsonB
+  result          Json?           @db.JsonB
+  checkpoint      String?
+  lastResponseId  String?         @map("last_response_id") @db.VarChar(255)
+  approvalReason  String?         @map("approval_reason")
+  lastError       String?         @map("last_error")
+  attempts        Int             @default(0)
+  maxAttempts     Int             @default(5) @map("max_attempts")
+  availableAt     DateTime        @default(now()) @map("available_at") @db.Timestamptz(6)
+  leaseOwner      String?         @map("lease_owner") @db.VarChar(160)
+  leaseExpiresAt  DateTime?       @map("lease_expires_at") @db.Timestamptz(6)
+  heartbeatAt     DateTime?       @map("heartbeat_at") @db.Timestamptz(6)
+  startedAt       DateTime?       @map("started_at") @db.Timestamptz(6)
+  completedAt     DateTime?       @map("completed_at") @db.Timestamptz(6)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  events          AgentJobEvent[]
+
+  @@index([status, availableAt, createdAt], map: "agent_jobs_claim_idx")
+  @@index([leaseExpiresAt], map: "agent_jobs_lease_idx")
+  @@map("agent_jobs")
+}
+
+model AgentJobEvent {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jobId     String   @map("job_id") @db.Uuid
+  eventType String   @map("event_type") @db.VarChar(80)
+  payload   Json     @default("{}") @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  job       AgentJob @relation(fields: [jobId], references: [id], onDelete: Restrict)
+
+  @@index([jobId, createdAt], map: "agent_job_events_job_time_idx")
+  @@map("agent_job_events")
+}
