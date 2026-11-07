@@ -31,12 +31,19 @@
 - PR #32 is a sandbox contract/policy proposal only until CI is resolved and a concrete isolation backend is implemented and tested.
 
 ## Open technical decisions
-- Concrete sandbox runtime and verified Coolify deployment support.
+- Concrete sandbox runtime implementation is a dedicated rootless Linux Docker Engine controlled over HTTPS/mTLS; verify actual Coolify-side support, isolated-daemon identity, and network placement before activation.
 - Read-only database discovery mechanism and approved inventory scope.
 - Database/API integration map after HAI requirements are extracted.
 - Parent/child task graph schema and dispatch concurrency.
 - Restricted GitHub write credential and PR lifecycle.
 - Model/provider quality/cost evidence and spend limits.
+
+## ENG-03 sandbox backend decision — 2026-11-07
+- Implement the backend against the Docker Engine API over HTTPS/mTLS, with a pinned daemon ID, the `atsh.sandbox=true` daemon label, Linux/rootless mode, and cgroup limit support. Do not use the Coolify host daemon or mount its Docker socket into the Worker.
+- Run one disposable, non-root container per command from an immutable image digest. Enforce `NetworkMode=none`, disabled IPC, private PID/UTS/cgroup namespaces, read-only root, no host bind/device/port mounts, UID 65532, dropped capabilities, no-new-privileges, exactly two bounded tmpfs mounts, CPU/memory/PID/time/output limits, cancellation and cleanup. Inspect effective settings and reject deviations before start.
+- The sandbox receives no credentials and no network access. Package installation that requires a registry is not enabled; ENG-09 must use an approved artifact cache or a separately reviewed allowlist policy.
+- The Worker adds `sandbox_run_command` only after complete runtime configuration and daemon preflight. Sandbox variables are currently absent, and local Docker is unavailable; therefore this conditional path has not run against the deployed Worker. Do not treat ENG-03 as accepted until the real-runtime integration workflow and deployment-side GATE-01 evidence pass.
+- No paid npm package or sandbox-runtime subscription was introduced; the Docker Engine client uses Node built-ins. The integration job uses the repository's existing GitHub Actions configuration and its existing usage quota.
 
 
 ## Coding-agent delegation — 2026-11-07

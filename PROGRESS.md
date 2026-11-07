@@ -35,6 +35,15 @@ The owner confirms Coolify, GitHub repository/branches/permissions, existing ser
 ## Current technical boundary
 The worker can create new files in a per-job workspace. It does not yet have a proven isolated command/build/test runtime. Running generated/customer-controlled scripts with only `cwd=workspace`, an allowlist, timeout, or environment filtering is not OS isolation and is prohibited.
 
+## ENG-03 — sandbox implementation in progress
+- Added `apps/worker/src/docker-sandbox.ts`: Docker Engine API client using HTTPS/mTLS; pinned daemon ID, dedicated-daemon label, Linux/rootless and cgroup capability checks; immutable image requirement; per-command container creation and inspection; UID 65532; dropped capabilities; no-new-privileges; read-only root; no network, device, host bind, port, or extra mount; private PID/UTS/cgroup namespaces; 1 CPU / 512 MiB / 128 PID caps; bounded workspace and `/tmp` tmpfs; bounded local logs; command timeout, AbortSignal cancellation and forced container cleanup. Inspection verifies the effective command and exactly two writable tmpfs mounts before start.
+- Added `apps/worker/src/sandbox-archive.ts`: bounded workspace tar transfer; `.env*`, `.git`, and `node_modules` exclusion; symlink/special-file/traversal rejection; safe output synchronization.
+- Updated the worker tool loop so `sandbox_run_command` is added only when all sandbox runtime settings exist and the configured daemon passes preflight. Current environment has no sandbox settings, so the model receives no command tool. The worker does not receive Docker socket access; generated/customer-controlled code still has not run.
+- Added `Dockerfile.sandbox`, `apps/worker/REAL_SANDBOX.md`, unit tests, an opt-in real-runtime acceptance test, and `.github/workflows/sandbox-integration.yml`. The CI test daemon is disposable and rootless; the worker reaches it only through a local mTLS test proxy.
+- Local checks: temporary Node 24 type-stripping harness ran 15 worker sandbox/contract tests: **14 passed, 1 skipped** (real Docker integration skipped because no daemon endpoint was configured). `node --check apps/worker/scripts/docker-mtls-proxy.mjs`, `node --check apps/worker/src/agent-runner.ts`, and `git diff --check` passed.
+- `npm run typecheck --workspace @atsh/worker` was attempted but failed because `tsc` is not installed. `npm install --workspace @atsh/worker --include-workspace-root --ignore-scripts --no-audit --no-fund --package-lock=false` stalled without registry output in the restricted network and was stopped; no lockfile or dependency declarations changed. `docker version` found no local Windows Docker daemon, and Podman is not installed.
+- ENG-03 remains open. The actual Docker Engine acceptance test, standard TypeScript/build/unit CI, selected Coolify runtime support, and deployment-side daemon/network evidence remain unverified. No generated code or package script has been permitted to execute in the deployed Worker.
+
 PR #32 CI run `42335451638` exposed TS2532 in `sandbox-contract.ts`. The unsafe array access was guarded in commit `9a15f41e43edd4d6b30074d495d9eb66bb9b981b`. Follow-up CI run `42336071140` passed TypeScript typecheck, build, and unit tests; CodeQL and Dependency Review also passed for this head. This validates the contract change only. It does not prove a concrete sandbox backend or safe execution of generated code.
 
 ## Mandatory environment gate
@@ -57,12 +66,11 @@ Created `docs/HAI-REQUIREMENT-TRACEABILITY-BASELINE.md` from the fixed executive
 - ATSH AI platform operational handover/customer request intake: not yet delivered by this production line.
 
 ## Next sequence
-1. **GATE-01 — complete and review Phase 0/1 evidence.** Obtain only the missing read-only owner/environment evidence listed in `docs/PHASE-1-ENVIRONMENT-EVIDENCE.md`; document unavailable evidence and safe owner action. Phase 1 remains INCOMPLETE — NOT READY.
-2. Do not begin customer-product vertical-slice implementation, real sandbox backend rollout, production DB integration, migrations or deployment until GATE-01 is reviewed and explicitly approved.
-3. After gate approval, select and validate a concrete sandbox backend, then implement immutable HAI intake/extraction and generated requirement traceability.
-4. Perform read-only live database discovery and safe integration mapping before any schema/API migration design.
-5. Continue task graph, restricted GitHub write lifecycle, spend controls, isolated tests, preview, revisions, exact-version approvals and release gates.
-6. Expand the initial source audit into a requirement-ID-to-code/API/schema/role/test/evidence map; keep unverified links open.
+1. Complete ENG-03 repository typecheck/build/unit CI and run its real-runtime acceptance workflow. Keep the model command tool disabled in deployed Worker configuration until that test passes against the selected dedicated daemon.
+2. Close only residual GATE-01 evidence: actual isolated daemon identity/network separation, least-privilege `agent-db` target, and backup/rollback evidence before any production-impacting operation. Phase 1 remains INCOMPLETE — NOT READY; broad setup checks are complete and will not be repeated.
+3. After ENG-03 acceptance and the relevant GATE-01 evidence review, continue in order with automated immutable HAI intake (ENG-04) and read-only existing-database discovery (ENG-05).
+4. Continue task graph, restricted GitHub write lifecycle, spend controls, isolated build/test evidence, preview, revisions, exact-version approvals, n8n integration, and release gates.
+5. Keep the ATSH AI customer product separate from this factory implementation and keep all unverified requirement/evidence links open.
 
 ## Safety
 No production database, schema, service, secret, merge to `main`, or deployment was changed by this assessment. PRs remain review-only.

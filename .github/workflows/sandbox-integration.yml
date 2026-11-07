@@ -1,0 +1,91 @@
+name: Sandbox Integration
+
+on:
+  pull_request:
+  push:
+    branches: [implementation/**]
+
+permissions:
+  contents: read
+
+jobs:
+  rootless-docker-sandbox:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.3
+      - name: Install dependencies
+        env:
+          DATABASE_URL: postgresql://atsh_dev:placeholder@127.0.0.1:5432/atsh_ai_dev?schema=public
+        run: npm install
+      - name: Start an isolated rootless Docker daemon
+        run: |
+          docker run --detach --rm --privileged \
+            --name atsh-sandbox-dind \
+            --publish 127.0.0.1:2375:2375 \
+            --env DOCKER_TLS_CERTDIR= \
+            docker:29.9.3-dind-rootless@sha256:e3d0fa70055956693134873845b743bbe35b5199c68a52347032ae3e5dbac9a0 \
+            --label=atsh.sandbox=true
+      - name: Wait for isolated rootless Docker daemon
+        run: |
+          export DOCKER_HOST=tcp://127.0.0.1:2375
+          for attempt in $(seq 1 60); do
+            if docker info >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker info >/dev/null
+          docker build --file Dockerfile.sandbox --tag atsh-sandbox:ci .
+          daemon_id=$(docker info --format '{{.ID}}')
+          image_id=$(docker image inspect --format '{{.Id}}' atsh-sandbox:ci)
+          echo "SANDBOX_DOCKER_EXPECTED_DAEMON_ID=$daemon_id" >> "$GITHUB_ENV"
+          echo "SANDBOX_IMAGE=$image_id" >> "$GITHUB_ENV"
+      - name: Create ephemeral mutual TLS test certificates
+        run: |
+          cert_dir="$RUNNER_TEMP/atsh-sandbox-mtls"
+          mkdir -p "$cert_dir"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -sha256 \
+            -keyout "$cert_dir/ca.key" -out "$cert_dir/ca.crt" \
+            -subj "/CN=atsh-sandbox-test-ca" \
+            -addext "basicConstraints=critical,CA:TRUE" \
+            -addext "keyUsage=critical,digitalSignature,keyCertSign,cRLSign"
+          openssl req -newkey rsa:2048 -nodes -sha256 \
+            -keyout "$cert_dir/server.key" -out "$cert_dir/server.csr" \
+            -subj "/CN=127.0.0.1"
+          printf '%s\n' "subjectAltName=IP:127.0.0.1,DNS:localhost" "extendedKeyUsage=serverAuth" > "$cert_dir/server.ext"
+          openssl x509 -req -in "$cert_dir/server.csr" -CA "$cert_dir/ca.crt" -CAkey "$cert_dir/ca.key" \
+            -CAcreateserial -out "$cert_dir/server.crt" -days 1 -sha256 -extfile "$cert_dir/server.ext"
+          openssl req -newkey rsa:2048 -nodes -sha256 \
+            -keyout "$cert_dir/client.key" -out "$cert_dir/client.csr" \
+            -subj "/CN=atsh-sandbox-test-client"
+          printf '%s\n' "extendedKeyUsage=clientAuth" > "$cert_dir/client.ext"
+          openssl x509 -req -in "$cert_dir/client.csr" -CA "$cert_dir/ca.crt" -CAkey "$cert_dir/ca.key" \
+            -CAcreateserial -out "$cert_dir/client.crt" -days 1 -sha256 -extfile "$cert_dir/client.ext"
+          echo "SANDBOX_DOCKER_HOST=https://127.0.0.1:2376" >> "$GITHUB_ENV"
+          echo "SANDBOX_DOCKER_CA_FILE=$cert_dir/ca.crt" >> "$GITHUB_ENV"
+          echo "SANDBOX_DOCKER_CERT_FILE=$cert_dir/client.crt" >> "$GITHUB_ENV"
+          echo "SANDBOX_DOCKER_KEY_FILE=$cert_dir/client.key" >> "$GITHUB_ENV"
+          echo "SANDBOX_PROXY_CA_FILE=$cert_dir/ca.crt" >> "$GITHUB_ENV"
+          echo "SANDBOX_PROXY_CERT_FILE=$cert_dir/server.crt" >> "$GITHUB_ENV"
+          echo "SANDBOX_PROXY_KEY_FILE=$cert_dir/server.key" >> "$GITHUB_ENV"
+          echo "AGENT_WORKSPACE_ROOT=$RUNNER_TEMP/atsh-sandbox-workspaces" >> "$GITHUB_ENV"
+          echo "SANDBOX_INTEGRATION=1" >> "$GITHUB_ENV"
+      - name: Start the local mTLS gate to the disposable daemon
+        run: |
+          node apps/worker/scripts/docker-mtls-proxy.mjs > "$RUNNER_TEMP/atsh-sandbox-proxy.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/atsh-sandbox-proxy.pid"
+          sleep 1
+      - name: Run worker sandbox integration acceptance
+        run: npm test --workspace @atsh/worker
+      - name: Stop mTLS test proxy
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/atsh-sandbox-proxy.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/atsh-sandbox-proxy.pid")" || true
+          fi
+          docker stop atsh-sandbox-dind || true

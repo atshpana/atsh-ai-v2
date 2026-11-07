@@ -3,6 +3,8 @@ import { appendToolOutput, ensureTaskContext, parseCheckpoint, rememberFile, req
 import { Pool, type PoolClient } from "pg";
 import { planTools, type CostClass, type ProjectBrief, type ProjectKind } from "./tool-orchestrator.js";
 import { createJobWorkspace, writeWorkspaceFile } from "./workspace-executor.js";
+import { createDockerSandboxBackendFromEnv } from "./docker-sandbox.js";
+import { executeSandboxCommand } from "./sandbox-contract.js";
 
 type Job = {
   id: string;
@@ -133,7 +135,7 @@ const tools = [
   {
     type: "function",
     name: "workspace_write_file",
-    description: "Create a new UTF-8 text file inside this job's isolated workspace. Paths are relative to the assigned workspace. Existing files cannot be overwritten; .env, .git, node_modules, traversal and absolute paths are forbidden. This tool does not run commands or deploy.",
+    description: "Create a new UTF-8 text file inside this job's assigned workspace. Paths are relative to the assigned workspace. Existing files cannot be overwritten; .env, .git, node_modules, traversal and absolute paths are forbidden. This tool does not run commands or deploy.",
     strict: true,
     parameters: {
       type: "object",
@@ -179,6 +181,23 @@ const tools = [
     },
   },
 ] as const;
+
+const sandboxCommandTool = {
+  type: "function",
+  name: "sandbox_run_command",
+  description: "Run one bounded argument-array command inside the verified, network-disabled, non-root build sandbox. Never pass secrets. Shell interpreter commands are rejected. Use only when this tool is present.",
+  strict: true,
+  parameters: {
+    type: "object",
+    properties: {
+      command: { type: "array", items: { type: "string", minLength: 1 }, minItems: 1, maxItems: 64 },
+      timeoutMs: { type: "integer", minimum: 1, maximum: 600000 },
+      maxOutputBytes: { type: "integer", minimum: 1, maximum: 2000000 },
+    },
+    required: ["command", "timeoutMs", "maxOutputBytes"],
+    additionalProperties: false,
+  },
+} as const;
 
 async function claimJob(): Promise<Job | null> {
   const client = await pool.connect();
@@ -300,16 +319,19 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
   if (!apiKey || !model) throw new Error("OpenAI API key and model are required.");
   const state = parseCheckpoint(checkpoint, job.input);
   ensureTaskContext(state, job.input);
+  const sandboxBackend = await createDockerSandboxBackendFromEnv();
+  if (sandboxBackend) await sandboxBackend.getCapabilities(signal);
+  const availableTools = sandboxBackend ? [...tools, sandboxCommandTool] : tools;
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model, store: false, max_output_tokens: maxOutputTokens, input: state.history, tools, tool_choice: "required",
+      model, store: false, max_output_tokens: maxOutputTokens, input: state.history, tools: availableTools, tool_choice: "required",
       instructions: [
         "You are the ATSH AI autonomous engineering task manager. Work only within the supplied scope.",
         "Be truthful; do not claim actions without tool evidence. Use record_progress to checkpoint.",
         "Request human approval before production deployment, destructive changes, spending, or undocumented decisions.",
-        "This worker can inspect the allowlisted GitHub repository and create files only inside the isolated per-job workspace. It cannot run shell commands, push code, merge pull requests, or deploy.",
+        "This worker can inspect the allowlisted GitHub repository and create files only inside the assigned per-job workspace. Command execution is available only when sandbox_run_command is present, and then only inside the verified network-disabled sandbox. Shell interpreter commands, GitHub writes, merges, and deployment are unavailable.",
         "Read every explicitly requested file. Call github_read_file for exact repository-relative paths. Previously read file contents are preserved; proceed to the next unread file and do not reread completed files.",
         "Use complete_job only after all requested files and acceptance criteria are satisfied with evidence."
       ].join(" ")
@@ -342,6 +364,22 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
       if (!workspaceRoot) throw new Error("AGENT_WORKSPACE_ROOT is required before workspace writes are enabled.");
       const workspace = await createJobWorkspace({ root: workspaceRoot, jobId: job.id });
       result = await writeWorkspaceFile(workspace, args.path, args.content);
+    } else if (call.name === "sandbox_run_command" && Array.isArray(args.command) &&
+        args.command.every((part) => typeof part === "string") && Number.isSafeInteger(args.timeoutMs) &&
+        Number.isSafeInteger(args.maxOutputBytes)) {
+      if (!sandboxBackend) throw new Error("Sandbox execution is disabled because no verified backend is configured.");
+      const workspaceRoot = process.env.AGENT_WORKSPACE_ROOT;
+      if (!workspaceRoot) throw new Error("AGENT_WORKSPACE_ROOT is required before sandbox execution is enabled.");
+      const workspace = await createJobWorkspace({ root: workspaceRoot, jobId: job.id });
+      result = await executeSandboxCommand(sandboxBackend, {
+        jobId: job.id,
+        workspace,
+        command: args.command as string[],
+        environment: {},
+        timeoutMs: args.timeoutMs as number,
+        maxOutputBytes: args.maxOutputBytes as number,
+        ...(signal ? { signal } : {}),
+      });
     } else if (call.name === "record_progress" && typeof args.note === "string") {
       result = { recorded: true, note: args.note };
     } else if (call.name === "complete_job" && args.result && typeof args.result === "object") {

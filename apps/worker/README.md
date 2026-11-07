@@ -12,7 +12,7 @@ This worker is a durable execution foundation, not yet an autonomous coding/depl
 - Requires explicit completion tool call; a text-only model answer cannot complete a job.
 
 ## Current boundary
-The only model tools are `record_progress`, `complete_job`, and `request_human_approval`. This MVP cannot edit GitHub repositories, run tests, invoke n8n, or deploy. Those capabilities must be added as narrowly-scoped, audited tools and verified against CI evidence. Production deployment, destructive operations, spending, and undocumented business decisions must remain approval-gated.
+The model can plan work, inspect the allowlisted GitHub repository read-only, create files in its per-job workspace, record progress, request approval, and explicitly complete a job. A concrete Docker Engine sandbox backend now exists. The command tool is added only when complete runtime configuration is deliberately supplied and the daemon preflight passes; keep that configuration empty until the dedicated rootless Linux daemon and real isolation integration test are reviewed. A worker directory, timeout, or environment filter is not treated as a sandbox. See [REAL_SANDBOX.md](./REAL_SANDBOX.md).
 
 ## Prerequisites
 - Node.js version required by the repository.
@@ -36,6 +36,7 @@ Insert a row into `agent_jobs` with a JSON `input` containing a task description
 - `AGENT_MAX_OUTPUT_TOKENS` bounds each model response.
 - `max_attempts` bounds retries per job.
 - A bounded retry/turn policy prevents accidental infinite API spend. “Continue until completion” means durable resumability, not an unlimited or unmetered loop.
+- No generated/customer-controlled code or package script runs until the concrete sandbox integration acceptance passes against the dedicated isolated runtime.
 
 ## n8n integration
 - A guarded REST adapter supports workflow discovery, inactive draft creation/update, and execution evidence listing.

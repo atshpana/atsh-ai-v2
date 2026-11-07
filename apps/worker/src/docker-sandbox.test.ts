@@ -1,0 +1,128 @@
+import { strict as assert } from "node:assert";
+import { test } from "node:test";
+import {
+  assertCreatedContainerSecurity,
+  assertDockerDaemonIdentity,
+  buildDockerContainerSpec,
+  demultiplexDockerLogs,
+} from "./docker-sandbox.js";
+import type { SandboxCommandRequest } from "./sandbox-contract.js";
+
+const image = `sha256:${"a".repeat(64)}`;
+const request: SandboxCommandRequest = {
+  jobId: "c03bb714-4c31-4c31-b8f0-cca21c3df1c5",
+  workspace: "/var/lib/atsh-agent/jobs/c03bb714-4c31-4c31-b8f0-cca21c3df1c5",
+  command: ["node", "--version"],
+  environment: { NODE_ENV: "test" },
+  timeoutMs: 60_000,
+  maxOutputBytes: 10_000,
+};
+
+function daemonInfo() {
+  return {
+    ID: "a".repeat(64),
+    OSType: "linux",
+    Labels: ["atsh.sandbox=true"],
+    SecurityOptions: ["name=seccomp,profile=default", "name=rootless", "name=cgroupns"],
+    MemoryLimit: true,
+    SwapLimit: true,
+    PidsLimit: true,
+  };
+}
+
+function safeInspect() {
+  return {
+    Config: { User: "65532:65532", Tty: false, OpenStdin: false, Entrypoint: [], Cmd: request.command },
+    HostConfig: {
+      Privileged: false,
+      ReadonlyRootfs: true,
+      NetworkMode: "none",
+      IpcMode: "none",
+      NanoCpus: 1_000_000_000,
+      Memory: 512 * 1024 * 1024,
+      MemorySwap: 512 * 1024 * 1024,
+      PidsLimit: 128,
+      PidMode: "private",
+      UTSMode: "private",
+      CgroupnsMode: "private",
+      CapDrop: ["ALL"],
+      CapAdd: [],
+      SecurityOpt: ["no-new-privileges:true"],
+      Binds: [],
+      VolumesFrom: [],
+      Devices: [],
+      DeviceRequests: [],
+      PortBindings: {},
+      Tmpfs: { "/workspace": "rw,size=268435456", "/tmp": "rw,size=67108864" },
+      LogConfig: { Type: "local", Config: { "max-size": "10k", "max-file": "1" } },
+    },
+    Mounts: [
+      { Type: "tmpfs", Destination: "/workspace", RW: true },
+      { Type: "tmpfs", Destination: "/tmp", RW: true },
+    ],
+  };
+}
+
+test("requires a pinned dedicated rootless Linux sandbox daemon with limit support", () => {
+  assert.doesNotThrow(() => assertDockerDaemonIdentity(daemonInfo(), "a".repeat(64)));
+  assert.throws(() => assertDockerDaemonIdentity(daemonInfo(), "b".repeat(64)), /identity did not match/);
+  assert.throws(() => assertDockerDaemonIdentity({ ...daemonInfo(), Labels: [] }, "a".repeat(64)), /dedicated ATSH sandbox/);
+  assert.throws(() => assertDockerDaemonIdentity({ ...daemonInfo(), SecurityOptions: [] }, "a".repeat(64)), /rootless mode/);
+  assert.throws(() => assertDockerDaemonIdentity({ ...daemonInfo(), PidsLimit: false }, "a".repeat(64)), /resource-limit support/);
+});
+
+test("constructs a non-root, networkless, read-only, resource-bounded container without host mounts", () => {
+  const spec = buildDockerContainerSpec(image, request, request.maxOutputBytes);
+  assert.equal(spec.User, "65532:65532");
+  assert.deepEqual(spec.Cmd, request.command);
+  assert.deepEqual(spec.Env, [
+    "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "HOME=/tmp",
+    "TMPDIR=/tmp",
+    "CI=true",
+    "NODE_ENV=test",
+  ]);
+  assert.equal(spec.HostConfig.NetworkMode, "none");
+  assert.equal(spec.HostConfig.ReadonlyRootfs, true);
+  assert.equal(spec.HostConfig.Memory, 512 * 1024 * 1024);
+  assert.equal(spec.HostConfig.MemorySwap, 512 * 1024 * 1024);
+  assert.equal(spec.HostConfig.PidsLimit, 128);
+  assert.deepEqual(spec.HostConfig.CapDrop, ["ALL"]);
+  assert.deepEqual(spec.HostConfig.Binds, []);
+  assert.equal(spec.HostConfig.LogConfig.Config["max-size"], "10k");
+});
+
+test("rejects mutable images and secret-like environment variables", () => {
+  assert.throws(() => buildDockerContainerSpec("node:22", request, 1000), /immutable sha256 digest/);
+  assert.throws(() => buildDockerContainerSpec(image, {
+    ...request,
+    environment: { OPENAI_API_KEY: "never-allowed" },
+  }, 1000), /non-allowlisted/);
+});
+
+test("keeps decoded log output within the byte cap for multibyte UTF-8", () => {
+  const frame = Buffer.from([1, 0, 0, 0, 0, 0, 0, 3, 0xe2, 0x82, 0xac]);
+  const result = demultiplexDockerLogs(frame, 1);
+  assert.equal(Buffer.byteLength(result.stdout) + Buffer.byteLength(result.stderr) <= 1, true);
+});
+
+test("refuses an inspected container whose effective security settings differ from policy", () => {
+  assert.doesNotThrow(() => assertCreatedContainerSecurity(safeInspect(), request.maxOutputBytes, request.command));
+  assert.throws(() => assertCreatedContainerSecurity({
+    ...safeInspect(),
+    HostConfig: { ...safeInspect().HostConfig, NetworkMode: "bridge" },
+  }, request.maxOutputBytes), /security mode/);
+  assert.throws(() => assertCreatedContainerSecurity({
+    ...safeInspect(),
+    HostConfig: { ...safeInspect().HostConfig, Binds: ["/:/host"] },
+  }, request.maxOutputBytes), /host path/);
+  assert.throws(() => assertCreatedContainerSecurity({
+    ...safeInspect(),
+    Mounts: [{ Type: "bind", Destination: "/var/run/docker.sock" }],
+  }, request.maxOutputBytes), /unapproved writable mounts/);
+  assert.throws(() => assertCreatedContainerSecurity({
+    ...safeInspect(),
+    HostConfig: { ...safeInspect().HostConfig, Tmpfs: { ...safeInspect().HostConfig.Tmpfs, "/root": "rw,size=1024" } },
+  }, request.maxOutputBytes), /workspace or temporary storage/);
+  assert.throws(() => assertCreatedContainerSecurity(safeInspect(), request.maxOutputBytes, ["sh", "-c", "unsafe"]), /requested direct command/);
+});
