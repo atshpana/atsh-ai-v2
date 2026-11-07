@@ -1,28 +1,39 @@
-# ATSH AI Engine — DECISIONS
+# ATSH AI Software Production Line — DECISIONS
 
-## Binding
-- Reference hierarchy: ATSH AI المرجع التنفيذي الثابت الشامل v2.0 > المرجع الأم الشامل > مرجع معمارية خط الإنتاج والعقل المركزي v1.1.
-- Owner confirms Coolify, GitHub, core-db/backup, and existing OpenAI key preparation complete; do not repeat broad readiness checks.
-- Use existing OpenAI key initially; runtime-only injection, task-scoped, redacted. Never store secrets in Git/chat/logs.
-- Build Worker must not access production core-db. Engine state belongs in agent-db.
-- Every consequential approval must be persisted in `approvals` and tied to exact release/version or commit SHA.
-- One active task at a time; do not redo completed tasks without concrete evidence and a new scoped corrective task.
+## Binding target and scope
+- This repository builds the ATSH AI Software Production Line, not the customer-facing ATSH AI platform itself.
+- The production line's primary mission is to receive the approved HAI master file, extract and trace its requirements, build the ATSH AI platform, discover and safely integrate with approved databases/services already on the designated server, test it, produce a preview, process revisions, and prepare a controlled release.
+- After approved deployment and handover, the ATSH AI platform is the system that receives and manages customer requests. The production line remains the controlled build/release mechanism for future changes.
+- The detailed target lifecycle is recorded in `docs/ENGINE-EXECUTION-BASELINE.md`.
 
-## Verified implementation decisions/findings
+## Existing server database boundary
+- Existing server databases must be discovered and their ownership/purpose understood before integration design.
+- Do not assume they are disposable, replaceable, or all owned by ATSH AI.
+- `agent-db` remains the durable source of truth for engine tasks/jobs/plans/checkpoints/approvals/audit events.
+- The Build Worker must not receive unrestricted production database credentials or direct network access to `core-db`.
+- ATSH AI application runtime data access is separate from the build sandbox and must use approved APIs or narrowly scoped least-privilege access.
+- No destructive schema/data changes or production migrations without a reviewed plan, non-production validation, recovery plan, and explicit approval.
+
+## Governance and security
+- Owner confirms Coolify, GitHub, existing server database/backup, and existing OpenAI key preparation complete; do not repeat broad readiness checks.
+- Use existing OpenAI key initially; inject at runtime, task-scoped and redacted. Never store secrets in Git/chat/logs.
+- Every consequential approval must be persisted and tied to the exact release/version or commit SHA.
+- One active task at a time; do not redo completed tasks without concrete evidence and a new scoped task.
+- No merge to `main`, production migration, or production deployment without explicit version-specific approval and required safety gates.
+- A working directory, command allowlist, timeout, or environment filtering alone is not a security sandbox; generated/customer-controlled code must not execute in the worker process or on the host.
+
+## Verified implementation facts
 - Durable queue/lease/retry/event/checkpoint foundation exists in worker source.
-- Tool planner persists plans but is not an executor.
+- Tool planner persists plans but is not a general executor.
 - GitHub worker integration is read-only.
-- PR #27 merged: isolated per-job workspace and guarded create-only file writes.
+- PR #27 merged: per-job workspace and guarded create-only file writes.
 - PR #30 merged: `workspace_write_file` exposed in worker tool loop; PR checks all passed.
-- Workspace writes are create-only (`wx`), capped at 1 MB, and reject absolute/traversal/reserved paths and symlink parents.
+- PR #32 is a sandbox contract/policy proposal only until CI is resolved and a concrete isolation backend is implemented and tested.
 
-## Security decision — command execution
-A command runner that merely sets `cwd` to the workspace, filters environment variables, or applies a timeout is not a security sandbox. Generated/customer-controlled code must not execute inside the worker process or on the host.
-Before enabling commands, establish a real isolated runtime with non-root execution, no production/core-db connectivity or credentials, no host/docker socket, read-only base filesystem, bounded workspace/tmp, CPU/memory/PID/time/output limits, cancellation, and explicit network policy.
-Until an approved backend is available and tested, execution must fail closed. The first ENG-03 deliverable is a policy/interface and tests proving no command launches without that backend.
-
-## Open
-- Actual sandbox runtime choice and availability, based on verified deployment capabilities.
+## Open technical decisions
+- Concrete sandbox runtime and verified Coolify deployment support.
+- Read-only database discovery mechanism and approved inventory scope.
+- Database/API integration map after HAI requirements are extracted.
 - Parent/child task graph schema and dispatch concurrency.
-- GitHub write credential scope and PR lifecycle.
-- Model quality/cost evidence and spend limits.
+- Restricted GitHub write credential and PR lifecycle.
+- Model/provider quality/cost evidence and spend limits.

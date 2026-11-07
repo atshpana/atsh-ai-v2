@@ -1,36 +1,42 @@
-# ATSH AI Engine — PROGRESS
+# ATSH AI Software Production Line — PROGRESS
 
 ## Current status — 2026-11-07
 
 **Repository:** `atshpana/atsh-ai-v2`  
-**Base branch:** `implementation/bootstrap`  
-**Latest completed change:** PR #30 merged at `78a2fd5ce6745e816668d7858bd8d984e3ee78a7`.
+**Review branch:** `docs/production-line-mission-v2`  
+**Governing target:** `docs/ENGINE-EXECUTION-BASELINE.md`
+
+## Mission
+Build a controlled software production line that receives the HAI master file, builds the ATSH AI platform from it, discovers and safely integrates with approved databases/services already on the designated server, tests the result, produces a preview, processes revisions, and prepares a gated release/deployment. The resulting ATSH AI platform — not the production-line engine — will receive and manage customer requests after approved deployment.
 
 ## Owner-confirmed prerequisites
-Coolify, GitHub repo/branches/permissions, core-db/backup, and existing OpenAI key preparation are confirmed complete by the owner. These are not independently re-tested here and will not be broadly repeated.
+The owner confirms Coolify, GitHub repository/branches/permissions, existing server database/backup preparation, and the existing OpenAI key preparation are complete. This is owner-confirmed status, not a fresh independent runtime test. Do not repeat broad readiness checks.
 
-## Completed
-- PR #28: governance baseline.
+## Verified implementation foundation
+- PR #28: repository governance baseline.
 - PR #29: task/progress/decision audit.
-- PR #27: isolated per-job workspace writer primitive.
+- PR #27: per-job workspace writer primitive.
 - PR #30: worker tool-loop integration for `workspace_write_file`.
-- PR #30 CI: CI success, CodeQL success, Dependency Review success.
-- Existing worker queue/lease/retry/event/checkpoint foundation and read-only GitHub inspection retained.
+- PR #30 CI, CodeQL, Dependency Review: success for that PR head.
+- Worker queue/lease/retry/event/checkpoint foundation and read-only GitHub inspection retained.
 
 ## Current technical boundary
-The worker can now create new files in its per-job workspace. It still cannot safely execute build/test commands. Running customer-controlled scripts with `cwd=workspace` in the worker process would not isolate filesystem, network, credentials, or process resources; do not implement that shortcut.
+The worker can create new files in a per-job workspace. It does not yet have a proven isolated command/build/test runtime. Running generated/customer-controlled scripts with only `cwd=workspace`, an allowlist, timeout, or environment filtering is not OS isolation and is prohibited.
 
-## Active task
-**ENG-03 — Design and implement a fail-closed sandbox execution adapter.**
+PR #32 currently represents a sandbox contract/policy layer, not a concrete container/microVM backend. Its CI must be diagnosed and pass before the contract change is accepted; a passing contract still does not prove real sandbox execution.
 
-First identify and validate a real OS/container sandbox boundary. Until then, only implement a strict policy/interface that refuses execution when no approved backend is configured.
+## HAI-to-ATSH AI lifecycle — not yet complete
+- HAI file intake/version/hash and requirement extraction/traceability: not implemented.
+- Existing server database metadata discovery and HAI-to-schema integration mapping: not implemented.
+- Real isolated build/test execution: not verified.
+- Durable parent/child task graph and bounded dispatch: not verified.
+- GitHub branch/commit/PR write lifecycle: not verified.
+- Preview artifacts, revision management, and version-bound approval: not implemented end-to-end.
+- Controlled deployment and post-deploy verification: not implemented end-to-end.
+- ATSH AI platform operational handover/customer request intake: not yet delivered by this production line.
 
-## Not yet verified
-- Build/test execution in an isolated runtime.
-- Parent/child task graph and actual multi-worker dispatch/result aggregation.
-- GitHub branch/commit/PR write integration.
-- Full spec-to-preview-to-revision-to-version-bound-approval delivery.
-- Live Coolify/DB runtime state.
+## Immediate next action
+Review this proposed mission baseline against the HAI master reference, then perform a repository gap assessment requirement by requirement. Continue one scoped task at a time, starting with the concrete sandbox blocker and then HAI intake/database discovery in the order recorded in `TASKS.md`.
 
 ## Safety
-No production DB, service, secret, or deployment was changed in this update. No merge to main or production deployment.
+No production database, schema, service, secret, merge to `main`, or deployment was changed by this documentation update.
