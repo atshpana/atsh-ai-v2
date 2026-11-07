@@ -56,7 +56,6 @@ export type DockerContainerSpec = {
     VolumesFrom: string[];
     Devices: unknown[];
     DeviceRequests: unknown[];
-    DeviceRequests: unknown[];
     PortBindings: Record<string, unknown>;
     Tmpfs: Record<string, string>;
     RestartPolicy: { Name: string };
