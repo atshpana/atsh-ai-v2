@@ -37,3 +37,11 @@
 - Parent/child task graph schema and dispatch concurrency.
 - Restricted GitHub write credential and PR lifecycle.
 - Model/provider quality/cost evidence and spend limits.
+
+
+## Coding-agent delegation — 2026-11-07
+- Owner has delegated broad authority to a coding agent to select tools/dependencies, implement the production-line engine, perform final merge and production changes, and spend from the available prepaid/API balance until exhausted.
+- Do not borrow, create credit, or create recurring/renewing commitments beyond available funds. Track usage and stop before funds are exhausted if safe continuation cannot be funded.
+- Owner-confirmed Coolify, GitHub, existing DB/backup and OpenAI key preparation are accepted; do not repeat broad setup audits or ask for secrets/screenshots. Validate only a concrete failure or missing safety evidence needed for the next operation.
+- Repository implementation and CI may proceed immediately. Generated/customer code execution requires a proven real sandbox; production-impacting changes require least-privilege, backup, tested rollback, health checks and audit evidence.
+- Detailed assignment and acceptance criteria: `docs/CODING-AGENT-HANDOFF.md`.
