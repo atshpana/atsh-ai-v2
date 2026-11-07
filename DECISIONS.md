@@ -49,6 +49,12 @@
 - The ephemeral GitHub Actions Ubuntu runner logged RootlessKit `fork/exec /proc/self/exe: operation not permitted`; the official Rootless Containers guidance documents this AppArmor/user-namespace failure for Ubuntu 24.04+ with RootlessKit at `/usr/local/bin/rootlesskit` (https://rootlesscontaine.rs/getting-started/common/apparmor/).
 - Apply the documented executable-specific AppArmor profile only on the disposable CI runner so the real rootless-daemon acceptance test can start. Do not copy this CI workaround to Coolify or treat it as evidence that the deployment daemon is isolated. The integration test remains the acceptance gate.
 
+## Rootless CI cgroup acceptance — 2026-11-07
+- The rootless DinD test daemon started and built the image, but its logs explicitly said it was running without cgroups. Docker documents that rootless CPU, memory, and PID limits require cgroup v2 and systemd; preserve the backend's fail-closed limit checks.
+- The next CI attempt uses an ephemeral `ubuntu-24.04` runner, disables the runner's system Docker service, and runs a separate rootless Docker user service under systemd. Install Docker packages from Docker's signed APT repository only after checking the pinned repository-key fingerprint. Require cgroup v2 and the systemd cgroup driver before acceptance.
+- Keep the Docker API on the runner user's Unix socket and pass it to the test worker only through the local mTLS proxy. Stop the user service during cleanup; the GitHub runner remains disposable. This is test infrastructure only and is not evidence that the Coolify runtime has the needed cgroup delegation, host isolation, or network boundary.
+- Local workflow YAML, all eight embedded Bash blocks, the changed JavaScript, and 14 sandbox/contract/archive tests pass. Remote CI and the actual daemon acceptance have not run yet; ENG-03 remains open.
+
 
 ## Coding-agent delegation — 2026-11-07
 - Owner has delegated broad authority to a coding agent to select tools/dependencies, implement the production-line engine, perform final merge and production changes, and spend from the available prepaid/API balance until exhausted.

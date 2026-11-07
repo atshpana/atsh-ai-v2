@@ -5,6 +5,11 @@ import { request } from "node:http";
 const ca = await readFile(process.env.SANDBOX_PROXY_CA_FILE);
 const cert = await readFile(process.env.SANDBOX_PROXY_CERT_FILE);
 const key = await readFile(process.env.SANDBOX_PROXY_KEY_FILE);
+const dockerSocket = process.env.SANDBOX_PROXY_UPSTREAM_SOCKET;
+
+if (!dockerSocket?.startsWith("/")) {
+  throw new Error("SANDBOX_PROXY_UPSTREAM_SOCKET must be an absolute Unix socket path.");
+}
 
 const server = createServer({
   ca,
@@ -20,12 +25,11 @@ const server = createServer({
     outgoing.end();
     return;
   }
-  const headers = { ...incoming.headers, host: "127.0.0.1:2375" };
+  const headers = { ...incoming.headers, host: "localhost" };
   delete headers.connection;
   delete headers["proxy-connection"];
   const upstream = request({
-    hostname: "127.0.0.1",
-    port: 2375,
+    socketPath: dockerSocket,
     path,
     method: incoming.method,
     headers,
