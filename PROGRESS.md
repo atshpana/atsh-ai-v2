@@ -29,7 +29,7 @@ The owner confirms Coolify, GitHub repository/branches/permissions, existing ser
 - PR #30: worker tool-loop integration for `workspace_write_file`.
 - PR #30 CI, CodeQL, Dependency Review: success for that PR head.
 - Worker queue/lease/retry/event/checkpoint foundation and read-only GitHub inspection retained.
-- PR #32 merged into implementation/bootstrap at commit `ebeabf4de468783d0cc7fc68b0738abc17d4054b` after all required checks passed. It adds a fail-closed sandbox contract only; no concrete runtime backend. PR #33 validation completed successfully: CI typecheck/build/unit tests, CodeQL and Dependency Review all passed on head `2ec0b9bc7300f2157d3471149845b6b573de897b`.
+- PR #32 merged into implementation/bootstrap at commit `ebeabf4de468783d0cc7fc68b0738abc17d4054b` after all required checks passed. It adds a fail-closed sandbox contract only; no concrete runtime backend. PR #33 validation completed successfully: CI typecheck/build/unit tests, CodeQL and Dependency Review all passed on head `2ec0b9bc7300f2157d3471149845b6b573de897b`. PR #34 CI run `42337871439` completed successfully on the latest traceability/documentation head; its `validate` job passed Prisma schema validation, Prisma client generation, migration preview generation (not applied), typecheck, build and unit tests. This is repository CI evidence only.
 
 ## Current technical boundary
 The worker can create new files in a per-job workspace. It does not yet have a proven isolated command/build/test runtime. Running generated/customer-controlled scripts with only `cwd=workspace`, an allowlist, timeout, or environment filtering is not OS isolation and is prohibited.
@@ -56,12 +56,18 @@ Created `docs/HAI-REQUIREMENT-TRACEABILITY-BASELINE.md` from the fixed executive
 - ATSH AI platform operational handover/customer request intake: not yet delivered by this production line.
 
 ## Next sequence
-1. Complete ENG-03 contract CI repair; then evaluate and validate a real sandbox backend.
-2. Complete the missing Phase 0/1 server-side evidence and review the partial report before any build or architecture implementation.
-3. Implement immutable HAI intake/extraction and requirement traceability.
-4. Perform read-only live database discovery and safe integration mapping.
-5. Continue task graph, GitHub write lifecycle, spend controls, isolated tests, preview, revisions, approvals and release gates.
-6. Expand the initial source audit into a requirement-ID traceability matrix and implement the first approved vertical slice only after Phase 0/1 approval.
+1. **GATE-01 — complete and review Phase 0/1 evidence.** Obtain only the missing read-only owner/environment evidence listed in `docs/PHASE-1-ENVIRONMENT-EVIDENCE.md`; document unavailable evidence and safe owner action. Phase 1 remains INCOMPLETE — NOT READY.
+2. Do not begin customer-product vertical-slice implementation, real sandbox backend rollout, production DB integration, migrations or deployment until GATE-01 is reviewed and explicitly approved.
+3. After gate approval, select and validate a concrete sandbox backend, then implement immutable HAI intake/extraction and generated requirement traceability.
+4. Perform read-only live database discovery and safe integration mapping before any schema/API migration design.
+5. Continue task graph, restricted GitHub write lifecycle, spend controls, isolated tests, preview, revisions, exact-version approvals and release gates.
+6. Expand the initial source audit into a requirement-ID-to-code/API/schema/role/test/evidence map; keep unverified links open.
 
 ## Safety
 No production database, schema, service, secret, merge to `main`, or deployment was changed by this assessment. PRs remain review-only.
+
+
+## Latest PR validation snapshot
+- PR #34 head `8d489139ccb913bc8052e43d2d18b1d25b0b7a5a`: CI run `42337871439` — **success**; validation job passed all steps, including schema validation, client generation, non-applied migration preview, typecheck, build and unit tests.
+- PR #33 head `2ec0b9bc7300f2157d3471149845b6b573de897b`: CI, CodeQL and Dependency Review — **success**.
+- PR #33 and PR #34 remain open and unmerged. No merge authorization is inferred from passing checks.
