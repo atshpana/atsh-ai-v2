@@ -116,7 +116,7 @@ test("rejects mutable images and secret-like environment variables", () => {
   assert.throws(() => buildDockerContainerSpec(image, {
     ...request,
     environment: { OPENAI_API_KEY: "never-allowed" },
-  }, 1000), /non-allowlisted/);
+  }), /non-allowlisted/);
 });
 
 test("keeps decoded log output within the byte cap for multibyte UTF-8", () => {

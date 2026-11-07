@@ -95,3 +95,6 @@
 - Do not trust a completion marker emitted through a channel controlled by generated code; it can be forged before the command exits. Use Docker exec inspect as the authority for command completion and exit status.
 - Keep the container alive with only a trusted bootstrap after input staging. Run requested argv through a Docker exec configured as UID/GID `65532:65532`, `Privileged=false`, no stdin, and the fixed `/workspace` working directory. Use a second trusted exec to stream USTAR output; cap HTTP/frame/tar sizes, reject exporter stderr or malformed framing, then pause and synchronize before cleanup.
 - Disable daemon log persistence while collecting live exec output under the request limit. Keep the 256 MiB workspace tmpfs, 64 MiB `/tmp`, networkless policy, read-only root, resource limits, and no credentials unchanged. This transport is an implementation candidate until the ephemeral rootless acceptance passes.
+
+## ENG-03 compile gate correction — 2026-11-07
+- The first Docker exec transport commit was blocked by TypeScript before the real sandbox test could run: `docker-sandbox.test.ts` retained an obsolete third argument after the spec builder API changed. Remove the stale argument and require CI typecheck/build plus the rootless acceptance to pass before treating the transport as viable.
