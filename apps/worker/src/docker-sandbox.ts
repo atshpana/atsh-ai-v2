@@ -18,7 +18,7 @@ const MAX_PIDS = 128;
 const CPU_NANO_CPUS = 1_000_000_000;
 const SAFE_ENV_NAMES = new Set(["CI", "LANG", "NODE_ENV", "TZ"]);
 const IMAGE_DIGEST = /^(?:[A-Za-z0-9._:/-]+@)?sha256:[a-f0-9]{64}$/i;
-const DAEMON_ID = /^[a-f0-9]{64}$/i;
+const DAEMON_ID = /^(?:[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}|[a-z0-9]{4}(?::[a-z0-9]{4}){11}|[a-f0-9]{64})$/i;
 
 type DockerResponse = { statusCode: number; headers: IncomingMessage["headers"]; body: Buffer };
 

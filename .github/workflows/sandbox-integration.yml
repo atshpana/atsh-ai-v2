@@ -63,8 +63,8 @@ jobs:
           docker build --file Dockerfile.sandbox --tag atsh-sandbox:ci .
           daemon_id=$(docker info --format '{{.ID}}')
           image_id=$(docker image inspect --format '{{.Id}}' atsh-sandbox:ci)
-          if [[ ! "$daemon_id" =~ ^[a-fA-F0-9]{64}$ ]]; then
-            echo "::error title=Sandbox daemon identity::Docker Engine returned no valid 64-character daemon ID."
+          if [[ ! "$daemon_id" =~ ^([a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}|[A-Za-z0-9]{4}(:[A-Za-z0-9]{4}){11}|[a-fA-F0-9]{64})$ ]]; then
+            echo "::error title=Sandbox daemon identity::Docker Engine returned an empty or unsupported daemon ID."
             exit 1
           fi
           if [[ ! "$image_id" =~ ^sha256:[a-fA-F0-9]{64}$ ]]; then

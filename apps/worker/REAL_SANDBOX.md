@@ -2,7 +2,7 @@
 
 ## Runtime boundary
 
-The worker talks to a dedicated Docker Engine API over HTTPS with mutual TLS. The daemon must be a separate, rootless Linux runtime with daemon label `atsh.sandbox=true`; its 64-character engine ID is pinned in `SANDBOX_DOCKER_EXPECTED_DAEMON_ID`. Do not point this client at the Coolify host daemon and do not mount `/var/run/docker.sock` into the worker. Docker daemon control is privileged, so the daemon host must contain no production services, databases, or credentials and must be reserved for disposable build containers.
+The worker talks to a dedicated Docker Engine API over HTTPS with mutual TLS. The daemon must be a separate, rootless Linux runtime with daemon label `atsh.sandbox=true`; the Docker Engine ID returned by its `/info` endpoint is pinned in `SANDBOX_DOCKER_EXPECTED_DAEMON_ID`. Do not point this client at the Coolify host daemon and do not mount `/var/run/docker.sock` into the worker. Docker daemon control is privileged, so the daemon host must contain no production services, databases, or credentials and must be reserved for disposable build containers.
 
 The model command tool is added only when the complete sandbox configuration exists and the worker can verify the pinned daemon. Each command creates a fresh container from `SANDBOX_IMAGE`, which must be an immutable `sha256` image reference. Before starting the command the backend inspects the created container and refuses it unless the effective configuration still matches policy:
 

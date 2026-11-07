@@ -9,6 +9,7 @@ import {
 import type { SandboxCommandRequest } from "./sandbox-contract.js";
 
 const image = `sha256:${"a".repeat(64)}`;
+const daemonId = "c20f7230-59a2-4824-a2f4-fda71c982ee6";
 const request: SandboxCommandRequest = {
   jobId: "c03bb714-4c31-4c31-b8f0-cca21c3df1c5",
   workspace: "/var/lib/atsh-agent/jobs/c03bb714-4c31-4c31-b8f0-cca21c3df1c5",
@@ -20,7 +21,7 @@ const request: SandboxCommandRequest = {
 
 function daemonInfo() {
   return {
-    ID: "a".repeat(64),
+    ID: daemonId,
     OSType: "linux",
     Labels: ["atsh.sandbox=true"],
     SecurityOptions: ["name=seccomp,profile=default", "name=rootless", "name=cgroupns"],
@@ -64,11 +65,14 @@ function safeInspect() {
 }
 
 test("requires a pinned dedicated rootless Linux sandbox daemon with limit support", () => {
-  assert.doesNotThrow(() => assertDockerDaemonIdentity(daemonInfo(), "a".repeat(64)));
-  assert.throws(() => assertDockerDaemonIdentity(daemonInfo(), "b".repeat(64)), /identity did not match/);
-  assert.throws(() => assertDockerDaemonIdentity({ ...daemonInfo(), Labels: [] }, "a".repeat(64)), /dedicated ATSH sandbox/);
-  assert.throws(() => assertDockerDaemonIdentity({ ...daemonInfo(), SecurityOptions: [] }, "a".repeat(64)), /rootless mode/);
-  assert.throws(() => assertDockerDaemonIdentity({ ...daemonInfo(), PidsLimit: false }, "a".repeat(64)), /resource-limit support/);
+  assert.doesNotThrow(() => assertDockerDaemonIdentity(daemonInfo(), daemonId));
+  assert.doesNotThrow(() => assertDockerDaemonIdentity({ ...daemonInfo(), ID: "J6Q3:IPZB:QYBB:VPBQ:UMPP:KARE:6ZNR:XE6T:7EWV:PKF4:ZOJD:TPYS" }, "J6Q3:IPZB:QYBB:VPBQ:UMPP:KARE:6ZNR:XE6T:7EWV:PKF4:ZOJD:TPYS"));
+  assert.doesNotThrow(() => assertDockerDaemonIdentity({ ...daemonInfo(), ID: "a".repeat(64) }, "a".repeat(64)));
+  assert.throws(() => assertDockerDaemonIdentity(daemonInfo(), "c20f7230-59a2-4824-a2f4-fda71c982ee7"), /identity did not match/);
+  assert.throws(() => assertDockerDaemonIdentity(daemonInfo(), "not-a-docker-id"), /identity did not match/);
+  assert.throws(() => assertDockerDaemonIdentity({ ...daemonInfo(), Labels: [] }, daemonId), /dedicated ATSH sandbox/);
+  assert.throws(() => assertDockerDaemonIdentity({ ...daemonInfo(), SecurityOptions: [] }, daemonId), /rootless mode/);
+  assert.throws(() => assertDockerDaemonIdentity({ ...daemonInfo(), PidsLimit: false }, daemonId), /resource-limit support/);
 });
 
 test("constructs a non-root, networkless, read-only, resource-bounded container without host mounts", () => {
