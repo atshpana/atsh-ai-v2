@@ -20,7 +20,7 @@
 - [x] ENG-02 Worker workspace-write integration — PR #30 merged; commit `78a2fd5ce6745e816668d7858bd8d984e3ee78a7`. CI, CodeQL, Dependency Review succeeded for that PR head.
 
 ## Active task
-- [ ] **GATE-01 — Complete Phase 0/1 evidence and review:** verify current backup integrity and restore test, sanitized staging, Coolify services, Worker/n8n runtime, database inventory/ownership/permissions, GitHub rules/CI, secret presence/scope without disclosure, network isolation and approvals schema. Phase 1 remains INCOMPLETE — NOT READY; no build/runtime/database work until review and approval.
+- [ ] **GATE-01 — Close only residual safety evidence:** owner-confirmed preparation for Coolify, GitHub, existing database/backup, and OpenAI key is accepted; do not repeat setup checks, re-enter secrets, or request repeated screenshots. Worker rolling update and startup log are owner-observed, but do not prove a successful model call or isolated execution. Resolve only evidence required for the concrete sandbox and any production-impacting operation (actual isolation/network boundary, least-privilege DB target, restore/rollback evidence, and release controls). Repository-only implementation and CI work may proceed immediately; generated/customer code execution and production-impacting actions remain blocked until their specific safety acceptance evidence exists.
 
 - [ ] **ENG-03 — Real fail-closed build sandbox**
   - PR #32 was merged into implementation/bootstrap at `ebeabf4de468783d0cc7fc68b0738abc17d4054b` after CI run `42336071140` passed typecheck, build, and unit tests; CodeQL and Dependency Review also passed.
@@ -30,12 +30,12 @@
   - Acceptance: integration tests prove a real job runs inside the isolated runtime, cannot reach host/core-db, respects resource limits, and is terminated on cancellation. Until then, generated code and package scripts must not execute.
 
 ## Mandatory environment gate
-- [ ] **PHASE-0/1 — protection and actual environment inspection**
-  - Owner confirms preparation is complete; independently verify only missing evidence.
+- [ ] **PHASE-0/1 — residual protection evidence only (no repeated setup audit)**
+  - Owner confirms preparation is complete; independently verify only missing evidence. Do not re-inspect completed settings broadly.
   - Phase 0: backup integrity/restore evidence, sanitized staging readiness, and safe secret-scope verification without exposing values.
   - Phase 1: Coolify services, Worker/n8n, actual databases and metadata, GitHub branch/Actions controls, secret presence/scope, network isolation, backup evidence, and approvals schema if present.
   - Partial report committed at docs/PHASE-1-ENVIRONMENT-EVIDENCE.md. GitHub/repository evidence is recorded; Coolify/server/database/network/backup/secret runtime evidence remains inaccessible. Keep this task open until the missing safe evidence is supplied and reviewed; no production writes.
-  - No build or architectural implementation before the report is reviewed and approved, as required by architecture v1.1.
+  - Repository-only implementation and CI may proceed. Do not execute generated/customer code or perform production-impacting work until the specific missing safety evidence is reviewed and accepted.
 
 ## Following tasks — ordered around the HAI build
 - [x] **ENG-04 — HAI requirement traceability baseline (documentation extraction):** `docs/HAI-REQUIREMENT-TRACEABILITY-BASELINE.md` records source hierarchy, PUB/ADM/API/role/lifecycle/product-module/production-line requirement families and current evidence status. This is not automated immutable intake or complete implementation traceability; those remain open.
@@ -54,3 +54,11 @@
 
 ## Completion policy
 Do not mark runtime, database integration, preview, or deployment complete from code presence or mocks alone. Require automated tests and environment evidence. Do not repeat completed tasks without a concrete failure and a new scoped task.
+
+
+## Direct coding-agent assignment — 2026-11-07
+- [ ] **AGENT-00 — Execute the production-line completion mandate:** the owner has assigned a coding agent to complete this repository's production-line engine directly. The authoritative handoff is `docs/CODING-AGENT-HANDOFF.md`.
+- The agent must not rebuild or re-audit completed prerequisites/foundations. Start with the concrete ENG-03 sandbox implementation, resolve only residual GATE-01 safety evidence, then continue ENG-04 through ENG-13 in order.
+- Owner-confirmed API key, Coolify, GitHub, and database/backup preparation are accepted; do not ask for the secret or repeated setup screenshots. Worker startup is not proof of an end-to-end model call.
+- The owner has delegated tool/dependency choice, implementation, final merge and production-change authority, with spending limited to available prepaid/API balance. Apply the handoff's safety, testing, rollback, audit and no-credit rules.
+- Do not mark tasks complete without implementation, passing tests, and recorded evidence. Keep this repository's scope on the factory engine, not the ATSH customer-facing platform.
