@@ -104,11 +104,11 @@ jobs:
       - name: Show isolated daemon logs on failure
         if: failure()
         run: |
-          daemon_logs=$(env -u DOCKER_HOST docker logs atsh-sandbox-dind 2>&1 | tail -n 40 | tr '\n' ' ' || true)
+          daemon_logs=$(env -u DOCKER_HOST docker logs atsh-sandbox-dind 2>&1 | tail -n 100 | tr '\n' ' ' || true)
           daemon_logs=${daemon_logs//%/%25}
           daemon_logs=${daemon_logs//$'\r'/%0D}
           daemon_logs=${daemon_logs//::/%3A%3A}
-          echo "::error title=Rootless Docker daemon startup logs::${daemon_logs:0:3000}"
+          echo "::error title=Rootless Docker daemon startup logs::${daemon_logs: -2500}"
       - name: Stop mTLS test proxy
         if: always()
         run: |
