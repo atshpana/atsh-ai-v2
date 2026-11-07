@@ -22,6 +22,18 @@ jobs:
         env:
           DATABASE_URL: postgresql://atsh_dev:placeholder@127.0.0.1:5432/atsh_ai_dev?schema=public
         run: npm install
+      - name: Permit rootlesskit user namespaces on this ephemeral runner
+        run: |
+          cat <<'EOF' | sudo tee /etc/apparmor.d/usr.local.bin.rootlesskit >/dev/null
+          abi <abi/4.0>,
+          include <tunables/global>
+
+          /usr/local/bin/rootlesskit flags=(unconfined) {
+            userns,
+            include if exists <local/usr.local.bin.rootlesskit>
+          }
+          EOF
+          sudo systemctl restart apparmor.service
       - name: Start an isolated rootless Docker daemon
         run: |
           docker run --detach --privileged \

@@ -45,6 +45,10 @@
 - The Worker adds `sandbox_run_command` only after complete runtime configuration and daemon preflight. Sandbox variables are currently absent, and local Docker is unavailable; therefore this conditional path has not run against the deployed Worker. Do not treat ENG-03 as accepted until the real-runtime integration workflow and deployment-side GATE-01 evidence pass.
 - No paid npm package or sandbox-runtime subscription was introduced; the Docker Engine client uses Node built-ins. The integration job uses the repository's existing GitHub Actions configuration and its existing usage quota.
 
+## Rootless CI runner compatibility — 2026-11-07
+- The ephemeral GitHub Actions Ubuntu runner logged RootlessKit `fork/exec /proc/self/exe: operation not permitted`; the official Rootless Containers guidance documents this AppArmor/user-namespace failure for Ubuntu 24.04+ with RootlessKit at `/usr/local/bin/rootlesskit` (https://rootlesscontaine.rs/getting-started/common/apparmor/).
+- Apply the documented executable-specific AppArmor profile only on the disposable CI runner so the real rootless-daemon acceptance test can start. Do not copy this CI workaround to Coolify or treat it as evidence that the deployment daemon is isolated. The integration test remains the acceptance gate.
+
 
 ## Coding-agent delegation — 2026-11-07
 - Owner has delegated broad authority to a coding agent to select tools/dependencies, implement the production-line engine, perform final merge and production changes, and spend from the available prepaid/API balance until exhausted.
