@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { appendToolOutput, parseCheckpoint, rememberFile, serializeCheckpoint, type AgentCheckpoint } from "./checkpoint-state.js";
+import { appendToolOutput, parseCheckpoint, rememberFile, requiredFilePaths, serializeCheckpoint, type AgentCheckpoint } from "./checkpoint-state.js";
 import { Pool, type PoolClient } from "pg";
 import { planTools, type CostClass, type ProjectBrief, type ProjectKind } from "./tool-orchestrator.js";
 
@@ -315,8 +315,14 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
     } else if (call.name === "complete_job" && args.result && typeof args.result === "object") {
       const candidate = args.result as { summary?: unknown; evidence?: unknown };
       if (typeof candidate.summary !== "string" || !Array.isArray(candidate.evidence) || candidate.evidence.length === 0 || candidate.evidence.some((v) => typeof v !== "string" || !v.trim())) throw new Error("Completion requires a summary and non-empty evidence.");
-      decision = { kind: "complete", result: candidate as { summary: string; evidence: string[] }, responseId: payload.id ?? null };
-      result = { accepted: true };
+      const required = requiredFilePaths(job.input);
+      const missing = required.filter((path) => !Object.prototype.hasOwnProperty.call(state.files, path));
+      if (missing.length > 0) {
+        result = { accepted: false, missingRequiredFiles: missing, instruction: "Read every missing required file before attempting completion again." };
+      } else {
+        decision = { kind: "complete", result: candidate as { summary: string; evidence: string[] }, responseId: payload.id ?? null };
+        result = { accepted: true, inspectedFiles: Object.keys(state.files) };
+      }
     } else if (call.name === "request_human_approval" && typeof args.reason === "string") {
       decision = { kind: "approval", reason: args.reason, responseId: payload.id ?? null };
       result = { approvalRequested: true };
