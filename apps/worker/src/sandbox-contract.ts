@@ -55,6 +55,7 @@ const MAX_OUTPUT_BYTES = 2_000_000;
 const MAX_COMMAND_PARTS = 64;
 const MAX_ENV_ENTRIES = 32;
 const ENV_NAME = /^[A-Z_][A-Z0-9_]{0,63}$/;
+const SHELL_EXECUTABLES = new Set(["sh", "bash", "dash", "zsh", "fish", "ash", "cmd", "cmd.exe", "powershell", "pwsh"]);
 
 export function assertSandboxCapabilities(capabilities: SandboxCapabilities): void {
   if (capabilities.isolation !== "container" && capabilities.isolation !== "microvm") {
@@ -81,6 +82,10 @@ export async function executeSandboxCommand(
   if (!Array.isArray(request.command) || request.command.length < 1 || request.command.length > MAX_COMMAND_PARTS ||
       request.command.some((part) => typeof part !== "string" || part.length === 0 || part.includes("\0"))) {
     throw new Error("Command must be a non-empty argument array; shell command strings are not accepted.");
+  }
+  const executable = request.command[0].split("/").at(-1)?.toLowerCase() ?? "";
+  if (SHELL_EXECUTABLES.has(executable) || (request.command.length > 1 && request.command[1] === "-c")) {
+    throw new Error("Shell interpreters and shell command execution are not permitted in sandbox requests.");
   }
   if (!Number.isSafeInteger(request.timeoutMs) || request.timeoutMs < 1 || request.timeoutMs > MAX_TIMEOUT_MS) {
     throw new Error(`Command timeout must be between 1 and ${MAX_TIMEOUT_MS} milliseconds.`);
