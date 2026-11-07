@@ -133,6 +133,24 @@ test("exposes only allowlisted sandbox policy failures in integration diagnostic
   assert.equal(safeSandboxPolicyDiagnostic(new Error("unexpected token=private-value")), undefined);
 });
 
+test("summarizes inspected mount mismatches without exposing source paths", () => {
+  let failure: unknown;
+  try {
+    assertCreatedContainerSecurity({
+      ...safeInspect(),
+      Mounts: [
+        { Type: "tmpfs", Destination: "/workspace", RW: true },
+        { Type: "bind", Destination: "/private/host/source", RW: true },
+      ],
+    }, request.maxOutputBytes, request.command);
+  } catch (error) {
+    failure = error;
+  }
+  const diagnostic = safeSandboxPolicyDiagnostic(failure);
+  assert.equal(diagnostic, "Sandbox container contains missing or unapproved writable mounts. Observed mount inventory: count=2; workspaceTmpfs=true; tempTmpfs=false; unapproved=1.");
+  assert.equal(diagnostic?.includes("/private/host/source"), false);
+});
+
 test("refuses an inspected container whose effective security settings differ from policy", () => {
   assert.doesNotThrow(() => assertCreatedContainerSecurity(safeInspect(), request.maxOutputBytes, request.command));
   assert.throws(() => assertCreatedContainerSecurity({

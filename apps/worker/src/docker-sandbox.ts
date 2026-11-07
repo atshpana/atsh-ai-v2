@@ -117,8 +117,32 @@ export function safeDockerDiagnostic(body: Buffer): string | undefined {
 }
 
 export function safeSandboxPolicyDiagnostic(error: unknown): string | undefined {
+  if (error instanceof SafeSandboxPolicyDiagnosticError) return `${error.message} ${error.diagnostic}`;
   if (error instanceof Error && SAFE_POLICY_FAILURES.has(error.message)) return error.message;
   return undefined;
+}
+
+class SafeSandboxPolicyDiagnosticError extends Error {
+  readonly diagnostic: string;
+
+  constructor(message: string, diagnostic: string) {
+    super(message);
+    this.name = "SafeSandboxPolicyDiagnosticError";
+    this.diagnostic = diagnostic;
+  }
+}
+
+function summarizeMountPolicy(mounts: unknown): string {
+  if (!Array.isArray(mounts)) return "Observed mount inventory: invalid.";
+  const entries = mounts as Array<{ Type?: unknown; Destination?: unknown; RW?: unknown }>;
+  const approvedTmpfs = (mount: typeof entries[number]) =>
+    mount.Type === "tmpfs" && (mount.Destination === WORKSPACE_PATH || mount.Destination === "/tmp") && mount.RW === true;
+  const count = entries.length > 100 ? "100+" : String(entries.length);
+  const unapproved = entries.filter((mount) => !approvedTmpfs(mount)).length;
+  const unapprovedCount = unapproved > 100 ? "100+" : String(unapproved);
+  const workspaceTmpfs = entries.some((mount) => mount.Type === "tmpfs" && mount.Destination === WORKSPACE_PATH && mount.RW === true);
+  const tempTmpfs = entries.some((mount) => mount.Type === "tmpfs" && mount.Destination === "/tmp" && mount.RW === true);
+  return `Observed mount inventory: count=${count}; workspaceTmpfs=${workspaceTmpfs}; tempTmpfs=${tempTmpfs}; unapproved=${unapprovedCount}.`;
 }
 
 function errorMessage(statusCode: number, method: string, path: string, body: Buffer): Error {
@@ -352,7 +376,10 @@ export function assertCreatedContainerSecurity(inspect: {
   if (!Array.isArray(inspect.Mounts) || inspect.Mounts.length !== 2 ||
       ![WORKSPACE_PATH, "/tmp"].every((destination) => inspect.Mounts?.some((mount) =>
         mount.Type === "tmpfs" && mount.Destination === destination && mount.RW === true))) {
-    throw new Error("Sandbox container contains missing or unapproved writable mounts.");
+    throw new SafeSandboxPolicyDiagnosticError(
+      "Sandbox container contains missing or unapproved writable mounts.",
+      summarizeMountPolicy(inspect.Mounts),
+    );
   }
   for (const mount of inspect.Mounts) {
     if (mount.Type !== "tmpfs" || (mount.Destination !== WORKSPACE_PATH && mount.Destination !== "/tmp")) {
