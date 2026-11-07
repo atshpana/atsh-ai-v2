@@ -154,3 +154,7 @@ Added `docs/HAI-CODE-TEST-EVIDENCE-MAP.md` at commit `1d93867641a38e6f29e3ad5ebc
 - On branch head `7793aff6ca1e92605312f6b9424e807a9a3e59c6`, CI run `42412899138`, CodeQL run `42412899142`, and Dependency Review run `42412899135` completed successfully. CI passed API tests 5/5, worker tests 51 passed/0 failed/1 local-Docker skip, all workspace typechecks and builds. The separate rootless Sandbox Integration run `42412899164` passed the worker suite 52/52 with the real Docker integration enabled.
 - CI generated a Prisma baseline preview; it did not apply or execute the new raw SQL migration. A new acceptance workflow applies the three API migrations to an empty disposable PostgreSQL 16 service and checks append-only behavior. Its result is pending on the next branch head.
 - Repository inventory found no approved HAI master source file; only derived traceability/audit documents are present. No migration was applied to agent-db or core-db, and no production change occurred. ENG-04 remains open.
+
+## ENG-04 migration acceptance correction — 2026-11-07
+- First ephemeral PostgreSQL run `42413869727` applied the migrations and inserted synthetic rows, then the TRUNCATE assertion failed because PostgreSQL rejected a parent-table TRUNCATE on foreign-key dependencies before the append-only trigger ran.
+- Updated the test to use `TRUNCATE ... CASCADE` inside a rollback-only transaction. The cascade still must be rejected by the table trigger; this changes only the disposable acceptance test, not migration policy. Rerun is pending.

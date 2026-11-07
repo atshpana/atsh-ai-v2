@@ -125,7 +125,7 @@ async function main() {
     for (const [table, update, deletion] of immutableTables) {
       await expectAppendOnlyFailure(client, update);
       await expectAppendOnlyFailure(client, deletion);
-      await expectAppendOnlyFailure(client, `TRUNCATE TABLE ${table}`);
+      await expectAppendOnlyFailure(client, `TRUNCATE TABLE ${table} CASCADE`);
     }
 
     const retainedRows = await client.query(

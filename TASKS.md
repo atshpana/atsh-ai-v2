@@ -125,3 +125,7 @@ Do not mark runtime, database integration, preview, or deployment complete from 
 - The acceptance seeds an isolated job, source, extracted item, job link, and evidence row, then verifies UPDATE, DELETE, and TRUNCATE are rejected for each HAI table and that all seeded rows remain intact.
 - Local checks: Node syntax check passed; a negative target check refused a non-local database before connecting. Successful Postgres application and trigger assertions are pending the new workflow run. No agent-db/core-db or production database was contacted.
 - No approved HAI master file is present in the repository; existing HAI traceability documents are derived baselines and are not substituted for that source. ENG-04 remains open.
+
+## ENG-04 migration acceptance correction — 2026-11-07
+- First ephemeral PostgreSQL run `42413869727` applied the migrations and inserted synthetic rows, then the TRUNCATE assertion failed because PostgreSQL rejected a parent-table TRUNCATE on foreign-key dependencies before the append-only trigger ran.
+- Updated the test to use `TRUNCATE ... CASCADE` inside a rollback-only transaction. The cascade still must be rejected by the table trigger; this changes only the disposable acceptance test, not migration policy. Rerun is pending.

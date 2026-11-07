@@ -112,3 +112,7 @@
 - CI's Prisma schema validation and baseline preview do not execute raw migration SQL. Add a dedicated PostgreSQL 16 service in GitHub Actions, constrained by the acceptance script to a loopback URL, exact disposable database name and user, and an empty database before applying migrations.
 - Exercise all additive API migrations in order, seed only synthetic records, and prove each HAI intake/evidence table rejects UPDATE, DELETE, and TRUNCATE. This is isolated CI evidence only; never use the acceptance script against agent-db, core-db, or production.
 - Existing repository HAI traceability documents are derived artifacts, not the approved master source. Do not mark automated intake complete or substitute a derived document; wait for the new migration workflow and a source explicitly approved for intake.
+
+## ENG-04 migration acceptance correction — 2026-11-07
+- First ephemeral PostgreSQL run `42413869727` applied the migrations and inserted synthetic rows, then the TRUNCATE assertion failed because PostgreSQL rejected a parent-table TRUNCATE on foreign-key dependencies before the append-only trigger ran.
+- Updated the test to use `TRUNCATE ... CASCADE` inside a rollback-only transaction. The cascade still must be rejected by the table trigger; this changes only the disposable acceptance test, not migration policy. Rerun is pending.
