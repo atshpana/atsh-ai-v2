@@ -46,8 +46,8 @@ export type DockerContainerSpec = {
     Memory: number;
     MemorySwap: number;
     PidsLimit: number;
-    PidMode: string;
-    UTSMode: string;
+    PidMode?: string;
+    UTSMode?: string;
     CgroupnsMode: string;
     CapDrop: string[];
     CapAdd: string[];
