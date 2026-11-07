@@ -79,3 +79,7 @@
 - Set `compress=false` explicitly and continue checking `max-file=1` plus the request-specific `max-size`. This preserves bounded output storage and avoids increasing the file count. Docker documents this option in its [local logging driver reference](https://docs.docker.com/engine/logging/drivers/local/).
 - The next daemon run passed container start but failed with a generic error after startup. In integration mode only, report one fixed stage label for create/inspect/start/stdin/wait/logs/output; do not log raw exception strings. Production continues returning the generic suppressed failure.
 - The next run reached output archive application. Allow only a curated set of static tar validation/synchronization messages in the opt-in test; do not emit arbitrary filesystem exceptions or file paths. The next integration run must still establish that the archive is parsed and applied safely.
+
+## ENG-03 Docker archive root normalization — 2026-11-07
+- The real rootless job on PR head `45aced9d0c85452d78523086c1684de128562c3f` narrowed the failure to the archive parser rejecting an invalid relative path. Accept an absolute archive name only when it is rooted at the assigned `/workspace` tmpfs; strip that exact prefix and run the normal path checks on the remainder. Reject every other absolute root, traversal segment, reserved name, link, or special file.
+- This is a candidate compatibility fix, not acceptance evidence. Local focused tests pass 14/14; repeat the real Docker integration and keep ENG-03 open until it passes.

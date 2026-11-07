@@ -28,6 +28,34 @@ test("workspace tar transfer preserves regular files and excludes secrets and re
   }
 });
 
+test("normalizes only the assigned absolute Docker archive root", async () => {
+  const root = await mkdtemp(join(tmpdir(), "atsh-sandbox-absolute-archive-"));
+  const workspace = join(root, "workspace");
+  try {
+    await mkdir(workspace);
+    await writeFile(join(workspace, "result.txt"), "safe output");
+    const archive = await createWorkspaceTar(workspace);
+    const setHeaderPath = (path: string): void => {
+      archive.fill(0, 0, 100);
+      archive.write(path, 0, 100, "utf8");
+      archive.fill(0x20, 148, 156);
+      let checksum = 0;
+      for (let index = 0; index < 512; index += 1) checksum += archive[index]!;
+      archive.write(checksum.toString(8).padStart(6, "0"), 148, 6, "ascii");
+      archive[154] = 0;
+      archive[155] = 0x20;
+    };
+
+    setHeaderPath("/workspace/result.txt");
+    assert.deepEqual(parseWorkspaceTar(archive).map((entry) => entry.path), ["result.txt"]);
+
+    setHeaderPath("/etc/passwd");
+    assert.throws(() => parseWorkspaceTar(archive), /invalid relative path/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("workspace result synchronization applies file changes, deletions, and file-directory replacements safely", async () => {
   const root = await mkdtemp(join(tmpdir(), "atsh-sandbox-sync-"));
   const workspace = join(root, "workspace");

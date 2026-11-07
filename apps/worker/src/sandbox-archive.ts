@@ -185,7 +185,12 @@ function verifyTarChecksum(header: Buffer): void {
 
 function normalizeContainerArchivePath(name: string): string {
   let normalized = name;
-  if (normalized.startsWith("workspace/")) normalized = normalized.slice("workspace/".length);
+  // Docker Engine versions may preserve the requested absolute container path
+  // in the archive headers. Accept only the exact assigned tmpfs root; all
+  // subsequent validation still runs on the stripped, workspace-relative path.
+  if (normalized.startsWith("/workspace/")) normalized = normalized.slice("/workspace/".length);
+  else if (normalized === "/workspace" || normalized === "/workspace/") normalized = ".";
+  else if (normalized.startsWith("workspace/")) normalized = normalized.slice("workspace/".length);
   else if (normalized === "workspace" || normalized === "workspace/") normalized = ".";
   return assertRelativePath(normalized);
 }
