@@ -6,7 +6,8 @@
 **Assessment branch:** `docs/hai-gap-matrix-v1`  
 **Mission baseline:** `docs/ENGINE-EXECUTION-BASELINE.md`  
 **Gap matrix:** `docs/HAI-PRODUCTION-LINE-GAP-MATRIX.md`  
-**Phase 1 evidence:** `docs/PHASE-1-ENVIRONMENT-EVIDENCE.md` (partial; not a readiness approval)
+**Phase 1 evidence:** `docs/PHASE-1-ENVIRONMENT-EVIDENCE.md` (partial; not a readiness approval)  
+**Product audit:** `docs/HAI-APPLICATION-CONFORMANCE-AUDIT.md` (repository-source audit; not live deployment acceptance)
 
 ## Mission
 Build a controlled software production line that receives the approved HAI master file, extracts and traces its requirements, builds the ATSH AI platform, discovers and safely integrates with approved existing server databases/services, tests the result, produces a preview, processes revisions, and prepares a gated release/deployment. The resulting ATSH AI platform — not the production-line engine — receives and manages customer requests after approved deployment.
@@ -37,6 +38,9 @@ PR #32 CI run `42335451638` exposed TS2532 in `sandbox-contract.ts`. The unsafe 
 ## Mandatory environment gate
 Architecture v1.1 requires Phase 0 protection and a documented Phase 1 environment report before build or architectural implementation. A partial report is recorded in `docs/PHASE-1-ENVIRONMENT-EVIDENCE.md`. GitHub repository metadata and CI were inspected; rulesets returned empty, but branch protection could not be read (403), so protection status remains unknown. Dockerfile.worker is a standard Node runtime image, not a sandbox. The n8n adapter is draft-only. Coolify, live Worker/n8n state, database metadata/ownership, backup/restore, sanitized staging, secret scope, network isolation and approvals schema remain unverified. A historical `docs/PHASE_0_AUDIT.md` on implementation/bootstrap conflicts with the higher-priority requirement to preserve and safely integrate the existing production database; it must not govern execution. No production writes were made.
 
+## HAI product conformance audit — initial source audit completed
+The audit at `docs/HAI-APPLICATION-CONFORMANCE-AUDIT.md` inspected the public web, admin, customer portal, API, security primitives and Prisma schema at the recorded implementation/bootstrap commit. It confirms meaningful UI and schema foundations, but not an operational product: public content/catalog are hard-coded; the 15 admin workspaces are scaffold routes; customer and request actions are disabled; API AppModule registers only HealthController; the global permission guard has no demonstrated authentication/session principal provider; portal workflows are incomplete/unverified. The audit also identifies a material conflict: README.md and docs/PHASE_0_AUDIT.md describe a greenfield reset excluding the existing database, while the approved fixed reference, HAI and architecture require inspection/preservation of current structure and protection of core-db. No database operation was performed.
+
 ## HAI-to-ATSH AI lifecycle — not yet complete
 - Immutable HAI intake/version/hash and automated requirement extraction/traceability: not implemented.
 - Existing server metadata discovery and HAI-to-live-schema mapping: not verified.
@@ -53,7 +57,7 @@ Architecture v1.1 requires Phase 0 protection and a documented Phase 1 environme
 3. Implement immutable HAI intake/extraction and requirement traceability.
 4. Perform read-only live database discovery and safe integration mapping.
 5. Continue task graph, GitHub write lifecycle, spend controls, isolated tests, preview, revisions, approvals and release gates.
-6. Run a separate HAI-to-application conformance audit across every screen, flow, API, entity, permission, rule and test.
+6. Expand the initial source audit into a requirement-ID traceability matrix and implement the first approved vertical slice only after Phase 0/1 approval.
 
 ## Safety
 No production database, schema, service, secret, merge to `main`, or deployment was changed by this assessment. PRs remain review-only.
