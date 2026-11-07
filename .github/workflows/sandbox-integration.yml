@@ -109,8 +109,11 @@ jobs:
             test_logs=${test_logs//%/%25}
             test_logs=${test_logs//$'\r'/%0D}
             test_logs=${test_logs//::/%3A%3A}
+            if [ "${#test_logs}" -gt 2500 ]; then
+              test_logs=${test_logs: -2500}
+            fi
             if [ -n "$test_logs" ]; then
-              echo "::error title=Sandbox acceptance failure output::${test_logs: -2500}"
+              echo "::error title=Sandbox acceptance failure output::${test_logs}"
             else
               echo "::error title=Sandbox acceptance failure output::No test output was captured; inspect the workflow step log."
             fi
@@ -123,7 +126,10 @@ jobs:
           daemon_logs=${daemon_logs//%/%25}
           daemon_logs=${daemon_logs//$'\r'/%0D}
           daemon_logs=${daemon_logs//::/%3A%3A}
-          echo "::error title=Rootless Docker daemon startup logs::${daemon_logs: -2500}"
+          if [ "${#daemon_logs}" -gt 2500 ]; then
+            daemon_logs=${daemon_logs: -2500}
+          fi
+          echo "::error title=Rootless Docker daemon startup logs::${daemon_logs}"
       - name: Stop mTLS test proxy
         if: always()
         run: |
