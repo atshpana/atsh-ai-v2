@@ -13,8 +13,8 @@ type Job = {
 
 type Decision =
   | { kind: "continue"; note: string; responseId: string | null }
-  | { kind: "complete"; result: { summary: string; evidence: string[] }; responseId: string | null }
-  | { kind: "approval"; reason: string; responseId: string | null };
+  | { kind: "complete"; result: { summary: string; evidence: string[] }; responseId: string | null; checkpoint: string }
+  | { kind: "approval"; reason: string; responseId: string | null; checkpoint: string };
 
 function positiveInteger(name: string, fallback: number, maximum: number): number {
   const raw = process.env[name];
@@ -320,11 +320,11 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
       if (missing.length > 0) {
         result = { accepted: false, missingRequiredFiles: missing, instruction: "Read every missing required file before attempting completion again." };
       } else {
-        decision = { kind: "complete", result: candidate as { summary: string; evidence: string[] }, responseId: payload.id ?? null };
+        decision = { kind: "complete", result: candidate as { summary: string; evidence: string[] }, responseId: payload.id ?? null, checkpoint: serializeCheckpoint(state) };
         result = { accepted: true, inspectedFiles: Object.keys(state.files) };
       }
     } else if (call.name === "request_human_approval" && typeof args.reason === "string") {
-      decision = { kind: "approval", reason: args.reason, responseId: payload.id ?? null };
+      decision = { kind: "approval", reason: args.reason, responseId: payload.id ?? null, checkpoint: serializeCheckpoint(state) };
       result = { approvalRequested: true };
     } else if (call.name === "plan_project_tools") {
       const brief = args as unknown as ProjectBrief;
@@ -454,7 +454,7 @@ async function processJob(job: Job) {
         await finish(job.id, "succeeded", decision.result, decision.responseId);
         return;
       }
-      await finish(job.id, "waiting_approval", decision.reason, decision.responseId);
+      await saveCheckpoint(job.id, decision.responseId, decision.checkpoint);\n      await finish(job.id, "waiting_approval", decision.reason, decision.responseId);
       return;
     }
     await saveCheckpoint(job.id, job.last_response_id, checkpoint);
