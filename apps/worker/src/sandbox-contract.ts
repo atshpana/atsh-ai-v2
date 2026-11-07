@@ -5,7 +5,7 @@ export type SandboxCapabilities = {
   noCoreDbNetwork: boolean;
   noHostSockets: boolean;
   readOnlyRootFilesystem: boolean;
-  workspaceOnlyWritable: boolean;
+  workspaceAndTmpOnlyWritable: boolean;
   cpuLimit: boolean;
   memoryLimit: boolean;
   processLimit: boolean;
@@ -21,6 +21,7 @@ export type SandboxCommandRequest = {
   environment: Record<string, string>;
   timeoutMs: number;
   maxOutputBytes: number;
+  signal?: AbortSignal;
 };
 
 export type SandboxCommandResult = {
@@ -32,7 +33,7 @@ export type SandboxCommandResult = {
 
 export interface SandboxBackend {
   readonly name: string;
-  getCapabilities(): Promise<SandboxCapabilities>;
+  getCapabilities(signal?: AbortSignal): Promise<SandboxCapabilities>;
   execute(request: SandboxCommandRequest): Promise<SandboxCommandResult>;
 }
 
@@ -42,7 +43,7 @@ const REQUIRED_BOOLEAN_CAPABILITIES = [
   "noCoreDbNetwork",
   "noHostSockets",
   "readOnlyRootFilesystem",
-  "workspaceOnlyWritable",
+  "workspaceAndTmpOnlyWritable",
   "cpuLimit",
   "memoryLimit",
   "processLimit",
@@ -55,6 +56,7 @@ const MAX_OUTPUT_BYTES = 2_000_000;
 const MAX_COMMAND_PARTS = 64;
 const MAX_ENV_ENTRIES = 32;
 const ENV_NAME = /^[A-Z_][A-Z0-9_]{0,63}$/;
+const SAFE_ENV_NAMES = new Set(["CI", "LANG", "NODE_ENV", "TZ"]);
 const SHELL_EXECUTABLES = new Set(["sh", "bash", "dash", "zsh", "fish", "ash", "cmd", "cmd.exe", "powershell", "pwsh"]);
 
 export function assertSandboxCapabilities(capabilities: SandboxCapabilities): void {
@@ -71,12 +73,7 @@ export function assertSandboxCapabilities(capabilities: SandboxCapabilities): vo
   }
 }
 
-export async function executeSandboxCommand(
-  backend: SandboxBackend | null | undefined,
-  request: SandboxCommandRequest,
-): Promise<SandboxCommandResult> {
-  if (!backend) throw new Error("Sandbox execution is disabled: no approved sandbox backend is configured.");
-  if (!backend.name.trim()) throw new Error("Sandbox backend must have a stable name.");
+export function assertSandboxCommandRequest(request: SandboxCommandRequest): void {
   if (!request.jobId.trim()) throw new Error("A job ID is required.");
   if (!request.workspace.startsWith("/")) throw new Error("Sandbox workspace must be an absolute path.");
   if (!Array.isArray(request.command) || request.command.length < 1 || request.command.length > MAX_COMMAND_PARTS ||
@@ -94,10 +91,21 @@ export async function executeSandboxCommand(
     throw new Error(`Command output limit must be between 1 and ${MAX_OUTPUT_BYTES} bytes.`);
   }
   const entries = Object.entries(request.environment);
-  if (entries.length > MAX_ENV_ENTRIES || entries.some(([key, value]) => !ENV_NAME.test(key) || typeof value !== "string" || value.length > 4096)) {
+  if (entries.length > MAX_ENV_ENTRIES || entries.some(([key, value]) =>
+    !ENV_NAME.test(key) || !SAFE_ENV_NAMES.has(key) || typeof value !== "string" || value.length > 4096 || /[\r\n\0]/.test(value))) {
     throw new Error("Command environment is invalid or exceeds the allowlisted size limits.");
   }
-  const capabilities = await backend.getCapabilities();
+  if (request.signal?.aborted) throw new Error("Sandbox command was cancelled before execution.");
+}
+
+export async function executeSandboxCommand(
+  backend: SandboxBackend | null | undefined,
+  request: SandboxCommandRequest,
+): Promise<SandboxCommandResult> {
+  if (!backend) throw new Error("Sandbox execution is disabled: no approved sandbox backend is configured.");
+  if (!backend.name.trim()) throw new Error("Sandbox backend must have a stable name.");
+  assertSandboxCommandRequest(request);
+  const capabilities = await backend.getCapabilities(request.signal);
   assertSandboxCapabilities(capabilities);
   return backend.execute(request);
 }

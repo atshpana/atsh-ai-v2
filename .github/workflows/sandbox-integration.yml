@@ -1,0 +1,212 @@
+name: Sandbox Integration
+
+on:
+  pull_request:
+  push:
+    branches: [implementation/**]
+
+permissions:
+  contents: read
+
+jobs:
+  rootless-docker-sandbox:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.3
+      - name: Install dependencies
+        env:
+          DATABASE_URL: postgresql://atsh_dev:placeholder@127.0.0.1:5432/atsh_ai_dev?schema=public
+        run: npm install
+      - name: Install and start a rootless Docker daemon with cgroup delegation
+        run: |
+          set -euo pipefail
+          docker_key=$(mktemp)
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o "$docker_key"
+          fingerprint=$(gpg --show-keys --with-colons "$docker_key" | awk -F: '$1 == "fpr" { print $10; exit }')
+          if [ "$fingerprint" != "9DC858229FC7DD38854AE2D88D81803C0EBFCD88" ]; then
+            echo "::error title=Docker repository key::Docker repository signing key fingerprint did not match the pinned fingerprint."
+            exit 1
+          fi
+          sudo install -m 0755 -d /etc/apt/keyrings
+          sudo install -m 0644 "$docker_key" /etc/apt/keyrings/docker.asc
+          rm -f "$docker_key"
+          . /etc/os-release
+          printf '%s\n' \
+            "Types: deb" \
+            "URIs: https://download.docker.com/linux/ubuntu" \
+            "Suites: ${UBUNTU_CODENAME:-$VERSION_CODENAME}" \
+            "Components: stable" \
+            "Architectures: $(dpkg --print-architecture)" \
+            "Signed-By: /etc/apt/keyrings/docker.asc" | sudo tee /etc/apt/sources.list.d/docker.sources >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            ca-certificates dbus-user-session docker-buildx-plugin docker-ce docker-ce-cli \
+            docker-ce-rootless-extras docker-compose-plugin containerd.io uidmap
+
+          runner_user=$(id -un)
+          runner_uid=$(id -u)
+          if ! awk -F: -v name="$runner_user" '$1 == name && $3 >= 65536 { found = 1 } END { exit !found }' /etc/subuid; then
+            sudo usermod --add-subuids 231072-296607 "$runner_user"
+          fi
+          if ! awk -F: -v name="$runner_user" '$1 == name && $3 >= 65536 { found = 1 } END { exit !found }' /etc/subgid; then
+            sudo usermod --add-subgids 231072-296607 "$runner_user"
+          fi
+
+          sudo systemctl disable --now docker.service || true
+          sudo systemctl disable --now docker.socket || true
+          if sudo systemctl is-active --quiet docker.service || sudo systemctl is-active --quiet docker.socket; then
+            echo "::error title=Rootful Docker still active::The runner's system Docker service or socket is still active."
+            exit 1
+          fi
+          sudo rm -f /var/run/docker.sock
+          sudo loginctl enable-linger "$runner_user"
+          sudo systemctl start "user@${runner_uid}.service"
+          export XDG_RUNTIME_DIR="/run/user/${runner_uid}"
+          export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+          for attempt in $(seq 1 30); do
+            if [ -S "$XDG_RUNTIME_DIR/bus" ]; then break; fi
+            sleep 1
+          done
+          test -S "$XDG_RUNTIME_DIR/bus"
+
+          mkdir -p "$HOME/.config/docker"
+          printf '%s\n' '{"labels":["atsh.sandbox=true"]}' > "$HOME/.config/docker/daemon.json"
+          dockerd-rootless-setuptool.sh install
+          systemctl --user daemon-reload
+          systemctl --user enable --now docker.service
+          export DOCKER_HOST="unix://${XDG_RUNTIME_DIR}/docker.sock"
+          for attempt in $(seq 1 60); do
+            if docker info >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          if ! docker info >/dev/null 2>&1; then
+            systemctl --user status docker.service --no-pager || true
+            journalctl --user -u docker.service --no-pager -n 100 || true
+            exit 1
+          fi
+          docker info --format 'rootless={{json .SecurityOptions}} cgroup={{.CgroupVersion}} driver={{.CgroupDriver}} labels={{json .Labels}}'
+          if ! docker info --format '{{.CgroupVersion}} {{.CgroupDriver}}' | grep -Eq '^2 systemd$'; then
+            echo "::error title=Rootless Docker cgroups::Rootless daemon did not start with cgroup v2 and the systemd cgroup driver."
+            exit 1
+          fi
+          echo "DOCKER_HOST=$DOCKER_HOST" >> "$GITHUB_ENV"
+          echo "SANDBOX_PROXY_UPSTREAM_SOCKET=$XDG_RUNTIME_DIR/docker.sock" >> "$GITHUB_ENV"
+          echo "SANDBOX_DOCKER_SYSTEMD_USER=$runner_user" >> "$GITHUB_ENV"
+          echo "SANDBOX_DOCKER_SYSTEMD_UID=$runner_uid" >> "$GITHUB_ENV"
+      - name: Wait for isolated rootless Docker daemon
+        id: sandbox-daemon
+        run: |
+          for attempt in $(seq 1 60); do
+            if docker info >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          if ! docker info >/dev/null 2>&1; then
+            exit 1
+          fi
+          docker build --file Dockerfile.sandbox --tag atsh-sandbox:ci .
+          daemon_id=$(docker info --format '{{.ID}}')
+          image_id=$(docker image inspect --format '{{.Id}}' atsh-sandbox:ci)
+          if [[ ! "$daemon_id" =~ ^([a-fA-F0-9]{8}(-[a-fA-F0-9]{4}){3}-[a-fA-F0-9]{12}|[A-Za-z0-9]{4}(:[A-Za-z0-9]{4}){11}|[a-fA-F0-9]{64})$ ]]; then
+            echo "::error title=Sandbox daemon identity::Docker Engine returned an empty or unsupported daemon ID."
+            exit 1
+          fi
+          if [[ ! "$image_id" =~ ^sha256:[a-fA-F0-9]{64}$ ]]; then
+            echo "::error title=Sandbox image identity::Docker Engine returned no valid immutable image ID."
+            exit 1
+          fi
+          echo "daemon_id=$daemon_id" >> "$GITHUB_OUTPUT"
+          echo "image_id=$image_id" >> "$GITHUB_OUTPUT"
+      - name: Create ephemeral mutual TLS test certificates
+        run: |
+          cert_dir="$RUNNER_TEMP/atsh-sandbox-mtls"
+          mkdir -p "$cert_dir"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -sha256 \
+            -keyout "$cert_dir/ca.key" -out "$cert_dir/ca.crt" \
+            -subj "/CN=atsh-sandbox-test-ca" \
+            -addext "basicConstraints=critical,CA:TRUE" \
+            -addext "keyUsage=critical,digitalSignature,keyCertSign,cRLSign"
+          openssl req -newkey rsa:2048 -nodes -sha256 \
+            -keyout "$cert_dir/server.key" -out "$cert_dir/server.csr" \
+            -subj "/CN=127.0.0.1"
+          printf '%s\n' "subjectAltName=IP:127.0.0.1,DNS:localhost" "extendedKeyUsage=serverAuth" > "$cert_dir/server.ext"
+          openssl x509 -req -in "$cert_dir/server.csr" -CA "$cert_dir/ca.crt" -CAkey "$cert_dir/ca.key" \
+            -CAcreateserial -out "$cert_dir/server.crt" -days 1 -sha256 -extfile "$cert_dir/server.ext"
+          openssl req -newkey rsa:2048 -nodes -sha256 \
+            -keyout "$cert_dir/client.key" -out "$cert_dir/client.csr" \
+            -subj "/CN=atsh-sandbox-test-client"
+          printf '%s\n' "extendedKeyUsage=clientAuth" > "$cert_dir/client.ext"
+          openssl x509 -req -in "$cert_dir/client.csr" -CA "$cert_dir/ca.crt" -CAkey "$cert_dir/ca.key" \
+            -CAcreateserial -out "$cert_dir/client.crt" -days 1 -sha256 -extfile "$cert_dir/client.ext"
+          echo "SANDBOX_DOCKER_HOST=https://127.0.0.1:2376" >> "$GITHUB_ENV"
+          echo "SANDBOX_DOCKER_CA_FILE=$cert_dir/ca.crt" >> "$GITHUB_ENV"
+          echo "SANDBOX_DOCKER_CERT_FILE=$cert_dir/client.crt" >> "$GITHUB_ENV"
+          echo "SANDBOX_DOCKER_KEY_FILE=$cert_dir/client.key" >> "$GITHUB_ENV"
+          echo "SANDBOX_PROXY_CA_FILE=$cert_dir/ca.crt" >> "$GITHUB_ENV"
+          echo "SANDBOX_PROXY_CERT_FILE=$cert_dir/server.crt" >> "$GITHUB_ENV"
+          echo "SANDBOX_PROXY_KEY_FILE=$cert_dir/server.key" >> "$GITHUB_ENV"
+          echo "AGENT_WORKSPACE_ROOT=$RUNNER_TEMP/atsh-sandbox-workspaces" >> "$GITHUB_ENV"
+          echo "SANDBOX_INTEGRATION=1" >> "$GITHUB_ENV"
+      - name: Start the local mTLS gate to the disposable daemon
+        run: |
+          node apps/worker/scripts/docker-mtls-proxy.mjs > "$RUNNER_TEMP/atsh-sandbox-proxy.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/atsh-sandbox-proxy.pid"
+          sleep 1
+      - name: Run worker sandbox integration acceptance
+        env:
+          SANDBOX_DOCKER_EXPECTED_DAEMON_ID: ${{ steps.sandbox-daemon.outputs.daemon_id }}
+          SANDBOX_IMAGE: ${{ steps.sandbox-daemon.outputs.image_id }}
+        run: |
+          set +e
+          npm test --workspace @atsh/worker 2>&1 | tee "$RUNNER_TEMP/atsh-sandbox-test.log"
+          test_status=${PIPESTATUS[0]}
+          if [ "$test_status" -ne 0 ]; then
+            test_logs=$(grep -n -A 40 -B 4 -E 'not ok [0-9]+|✖' "$RUNNER_TEMP/atsh-sandbox-test.log" 2>/dev/null | tr '\n' ' ' || true)
+            if [ -z "$test_logs" ]; then
+              test_logs=$(tail -n 80 "$RUNNER_TEMP/atsh-sandbox-test.log" 2>/dev/null | tr '\n' ' ' || true)
+            fi
+            test_logs=${test_logs//%/%25}
+            test_logs=${test_logs//$'\r'/%0D}
+            test_logs=${test_logs//::/%3A%3A}
+            if [ "${#test_logs}" -gt 2500 ]; then
+              test_logs=${test_logs: -2500}
+            fi
+            if [ -n "$test_logs" ]; then
+              echo "::error title=Sandbox acceptance failure output::${test_logs}"
+            else
+              echo "::error title=Sandbox acceptance failure output::No test output was captured; inspect the workflow step log."
+            fi
+          fi
+          exit "$test_status"
+      - name: Show isolated daemon logs on failure
+        if: failure()
+        run: |
+          runtime_dir="/run/user/${SANDBOX_DOCKER_SYSTEMD_UID:-0}"
+          daemon_logs=$(sudo -u "${SANDBOX_DOCKER_SYSTEMD_USER:-runner}" env \
+            XDG_RUNTIME_DIR="$runtime_dir" DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime_dir/bus" \
+            journalctl --user -u docker.service --no-pager -n 100 2>&1 | tr '\n' ' ' || true)
+          daemon_logs=${daemon_logs//%/%25}
+          daemon_logs=${daemon_logs//$'\r'/%0D}
+          daemon_logs=${daemon_logs//::/%3A%3A}
+          if [ "${#daemon_logs}" -gt 2500 ]; then
+            daemon_logs=${daemon_logs: -2500}
+          fi
+          echo "::error title=Rootless Docker daemon startup logs::${daemon_logs}"
+      - name: Stop mTLS test proxy
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/atsh-sandbox-proxy.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/atsh-sandbox-proxy.pid")" || true
+          fi
+          if [ -n "${SANDBOX_DOCKER_SYSTEMD_USER:-}" ]; then
+            sudo -u "$SANDBOX_DOCKER_SYSTEMD_USER" env \
+              XDG_RUNTIME_DIR="/run/user/${SANDBOX_DOCKER_SYSTEMD_UID}" \
+              DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${SANDBOX_DOCKER_SYSTEMD_UID}/bus" \
+              systemctl --user stop docker.service || true
+          fi

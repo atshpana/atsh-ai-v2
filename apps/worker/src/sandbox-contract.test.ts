@@ -14,7 +14,7 @@ const capabilities: SandboxCapabilities = {
   noCoreDbNetwork: true,
   noHostSockets: true,
   readOnlyRootFilesystem: true,
-  workspaceOnlyWritable: true,
+  workspaceAndTmpOnlyWritable: true,
   cpuLimit: true,
   memoryLimit: true,
   processLimit: true,
@@ -77,6 +77,25 @@ test("rejects shell strings and unbounded command requests before execution", as
     executeSandboxCommand(safe, { ...request, maxOutputBytes: 999_999_999 }),
     /output limit/,
   );
+});
+
+test("rejects secret or unreviewed environment variables before backend execution", async () => {
+  let calls = 0;
+  const safe: SandboxBackend = {
+    name: "safe-test",
+    getCapabilities: async () => { calls += 1; return capabilities; },
+    execute: async () => ({ exitCode: 0, stdout: "", stderr: "", durationMs: 0 }),
+  };
+  await assert.rejects(
+    executeSandboxCommand(safe, { ...request, environment: { OPENAI_API_KEY: "never-copy" } }),
+    /environment is invalid/,
+  );
+  assert.equal(calls, 0);
+  await assert.rejects(
+    executeSandboxCommand(safe, { ...request, environment: { NODE_ENV: "test\nPATH=attacker" } }),
+    /environment is invalid/,
+  );
+  assert.equal(calls, 0);
 });
 
 test("calls a capability-complete backend with a bounded argument-array request", async () => {
