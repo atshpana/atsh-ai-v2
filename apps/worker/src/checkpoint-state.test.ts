@@ -19,7 +19,8 @@ test("checkpoint preserves Responses API history and read files across serializa
 
 test("legacy text checkpoints migrate without discarding their content", () => {
   const resumed = parseCheckpoint("previous inspection note");
-  assert.match(String(resumed.history[0]?.content), /previous inspection note/);
+  assert.deepEqual(resumed.history, []);
+  assert.deepEqual(resumed.legacyNotes, ["previous inspection note"]);
   assert.deepEqual(resumed.files, {});
 });
 
