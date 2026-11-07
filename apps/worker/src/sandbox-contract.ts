@@ -83,7 +83,7 @@ export async function executeSandboxCommand(
       request.command.some((part) => typeof part !== "string" || part.length === 0 || part.includes("\0"))) {
     throw new Error("Command must be a non-empty argument array; shell command strings are not accepted.");
   }
-  const executable = request.command[0].split("/").at(-1)?.toLowerCase() ?? "";
+  const executable = request.command[0]?.split("/").at(-1)?.toLowerCase() ?? "";
   if (SHELL_EXECUTABLES.has(executable) || (request.command.length > 1 && request.command[1] === "-c")) {
     throw new Error("Shell interpreters and shell command execution are not permitted in sandbox requests.");
   }
