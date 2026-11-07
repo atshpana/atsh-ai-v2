@@ -24,7 +24,7 @@ jobs:
         run: npm install
       - name: Start an isolated rootless Docker daemon
         run: |
-          docker run --detach --rm --privileged \
+          docker run --detach --privileged \
             --name atsh-sandbox-dind \
             --publish 127.0.0.1:2375:2375 \
             --env DOCKER_TLS_CERTDIR= \
@@ -37,9 +37,16 @@ jobs:
             if docker info >/dev/null 2>&1; then
               break
             fi
+            if [ "$(env -u DOCKER_HOST docker inspect --format '{{.State.Running}}' atsh-sandbox-dind 2>/dev/null || true)" != "true" ]; then
+              env -u DOCKER_HOST docker logs atsh-sandbox-dind || true
+              exit 1
+            fi
             sleep 2
           done
-          docker info >/dev/null
+          if ! docker info >/dev/null 2>&1; then
+            env -u DOCKER_HOST docker logs atsh-sandbox-dind || true
+            exit 1
+          fi
           docker build --file Dockerfile.sandbox --tag atsh-sandbox:ci .
           daemon_id=$(docker info --format '{{.ID}}')
           image_id=$(docker image inspect --format '{{.Id}}' atsh-sandbox:ci)
@@ -82,6 +89,9 @@ jobs:
           sleep 1
       - name: Run worker sandbox integration acceptance
         run: npm test --workspace @atsh/worker
+      - name: Show isolated daemon logs on failure
+        if: failure()
+        run: docker logs atsh-sandbox-dind || true
       - name: Stop mTLS test proxy
         if: always()
         run: |
@@ -89,3 +99,4 @@ jobs:
             kill "$(cat "$RUNNER_TEMP/atsh-sandbox-proxy.pid")" || true
           fi
           docker stop atsh-sandbox-dind || true
+          docker rm atsh-sandbox-dind || true
