@@ -48,7 +48,7 @@
 - [ ] **ENG-13 — Security/failure acceptance suite and non-production pilot:** isolation, core-db denial from worker, tenant/data boundaries, secret redaction, spend/retry caps, destructive-action rejection, recovery and pilot acceptance.
 
 ## Separate product audit
-- [ ] **PRODUCT-HAI-01 — ATSH AI application conformance audit:** map every HAI screen, flow, API, entity, permission, business rule, test, and integration to actual code and evidence. The repository contains application workspaces and product documentation; do not infer completeness from their presence.
+- [x] **PRODUCT-HAI-01 — initial repository conformance audit:** recorded in `docs/HAI-APPLICATION-CONFORMANCE-AUDIT.md` against commit `ebeabf4de468783d0cc7fc68b0738abc17d4054b`. This is a source-code audit, not live deployment or visual acceptance. Findings: public site is static bilingual content; admin 15 workspaces are scaffolds; API registers only health; Prisma schema is a foundation; auth principal/session flow, configurator/order APIs, CMS publishing and complete portal workflows are not evidenced. Follow-up implementation tasks remain open.
 
 ## Completion policy
 Do not mark runtime, database integration, preview, or deployment complete from code presence or mocks alone. Require automated tests and environment evidence. Do not repeat completed tasks without a concrete failure and a new scoped task.
