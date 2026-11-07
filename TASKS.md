@@ -80,3 +80,8 @@ Do not mark runtime, database integration, preview, or deployment complete from 
 - Head `e2426b05e669b4619ef26d9fde888b340a0ab84f` passed CI, CodeQL, and Dependency Review but reported an empty `Mounts` list. Inspection occurs after Docker create and before start; pre-start `HostConfig.Tmpfs` passed exact policy validation, while realized mounts were not listed yet.
 - Keep pre-start checks on exact `HostConfig.Tmpfs` paths and sizes; validate any non-empty returned mount list strictly. The follow-up patch verifies from inside the running integration container that `/workspace` and `/tmp` are tmpfs with the configured bounds. No policy limit is relaxed.
 - Local Node 24 focused suite: 17 passed, one real-Docker test skipped without a local daemon. The next real-runtime acceptance result is pending; ENG-03 and deployment-side GATE-01 remain open.
+
+## ENG-03 read-only workspace staging correction — 2026-11-07
+- Head `2d5d12ce21ee47243ae12778e661d56edd1c1b24` passed CI, CodeQL, and Dependency Review, but real-runtime acceptance exposed that Docker's archive PUT endpoint rejects writes to any container whose rootfs is marked read-only (`container rootfs is marked read-only`).
+- Keep the rootfs read-only throughout. The next patch starts only a trusted bootstrap that reads the bounded workspace tar over the exact mTLS-proxied Docker attach stdin stream, extracts it into `/workspace` tmpfs, then `exec`s the requested argv after stdin EOF. `Dockerfile.sandbox` includes GNU tar; the proxy only permits this exact attach path for stream input.
+- Local Node 24 focused suite remains 17 passed with the real-Docker test skipped; syntax checks and `git diff --check` pass. The updated daemon acceptance is pending; do not activate the worker tool.

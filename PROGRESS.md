@@ -112,3 +112,8 @@ Added `docs/HAI-CODE-TEST-EVIDENCE-MAP.md` at commit `1d93867641a38e6f29e3ad5ebc
 - Head `e2426b05e669b4619ef26d9fde888b340a0ab84f` passed CI, CodeQL, and Dependency Review but reported an empty `Mounts` list. Inspection occurs after Docker create and before start; pre-start `HostConfig.Tmpfs` passed exact policy validation, while realized mounts were not listed yet.
 - Keep pre-start checks on exact `HostConfig.Tmpfs` paths and sizes; validate any non-empty returned mount list strictly. The follow-up patch verifies from inside the running integration container that `/workspace` and `/tmp` are tmpfs with the configured bounds. No policy limit is relaxed.
 - Local Node 24 focused suite: 17 passed, one real-Docker test skipped without a local daemon. The next real-runtime acceptance result is pending; ENG-03 and deployment-side GATE-01 remain open.
+
+## ENG-03 read-only workspace staging correction — 2026-11-07
+- Head `2d5d12ce21ee47243ae12778e661d56edd1c1b24` passed CI, CodeQL, and Dependency Review, but the real daemon rejected Docker archive PUT with `container rootfs is marked read-only`.
+- Keep rootfs read-only throughout. Workspace input now streams over a narrowly allowed Docker attach stdin tunnel to a trusted shell/tar bootstrap in the disposable container; only after EOF does it `exec` the requested argv. The proxy permits only this attach route and retains the mTLS gate. `Dockerfile.sandbox` adds GNU tar to the pinned Node image.
+- Local Node 24 focused suite: 17 passed; real Docker skipped because no local daemon. Syntax checks and `git diff --check` pass. Updated build/typecheck and real daemon acceptance remain pending.

@@ -5,6 +5,7 @@ import {
   assertDockerDaemonIdentity,
   buildDockerContainerSpec,
   demultiplexDockerLogs,
+  SANDBOX_ENTRYPOINT,
   safeDockerDiagnostic,
   safeSandboxPolicyDiagnostic,
 } from "./docker-sandbox.js";
@@ -35,7 +36,7 @@ function daemonInfo() {
 
 function safeInspect() {
   return {
-    Config: { User: "65532:65532", Tty: false, OpenStdin: false, Entrypoint: [], Cmd: request.command },
+    Config: { User: "65532:65532", Tty: false, OpenStdin: true, StdinOnce: true, Entrypoint: [...SANDBOX_ENTRYPOINT], Cmd: request.command },
     HostConfig: {
       Privileged: false,
       ReadonlyRootfs: true,
@@ -80,6 +81,11 @@ test("requires a pinned dedicated rootless Linux sandbox daemon with limit suppo
 test("constructs a non-root, networkless, read-only, resource-bounded container without host mounts", () => {
   const spec = buildDockerContainerSpec(image, request, request.maxOutputBytes);
   assert.equal(spec.User, "65532:65532");
+  assert.deepEqual(spec.Entrypoint, [...SANDBOX_ENTRYPOINT]);
+  assert.match(spec.Entrypoint[2]!, /tar -x -f - -C \/workspace/);
+  assert.equal(spec.AttachStdin, true);
+  assert.equal(spec.OpenStdin, true);
+  assert.equal(spec.StdinOnce, true);
   assert.deepEqual(spec.Cmd, request.command);
   assert.deepEqual(spec.Env, [
     "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
@@ -179,4 +185,12 @@ test("refuses an inspected container whose effective security settings differ fr
     HostConfig: { ...safeInspect().HostConfig, UTSMode: "host" },
   }, request.maxOutputBytes), /private process/);
   assert.throws(() => assertCreatedContainerSecurity(safeInspect(), request.maxOutputBytes, ["sh", "-c", "unsafe"]), /requested direct command/);
+  assert.throws(() => assertCreatedContainerSecurity({
+    ...safeInspect(),
+    Config: { ...safeInspect().Config, Entrypoint: [] },
+  }, request.maxOutputBytes, request.command), /trusted bootstrap/);
+  assert.throws(() => assertCreatedContainerSecurity({
+    ...safeInspect(),
+    Config: { ...safeInspect().Config, OpenStdin: false },
+  }, request.maxOutputBytes, request.command), /bounded input/);
 });

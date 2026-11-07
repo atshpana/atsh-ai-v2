@@ -16,10 +16,16 @@ const WORKSPACE_TMPFS_BYTES = 256 * 1024 * 1024;
 const TEMP_TMPFS_BYTES = 64 * 1024 * 1024;
 const MAX_PIDS = 128;
 const CPU_NANO_CPUS = 1_000_000_000;
+export const SANDBOX_ENTRYPOINT = [
+  "/bin/sh",
+  "-c",
+  "tar -x -f - -C /workspace --no-same-owner && exec \"$@\"",
+  "atsh-sandbox-init",
+] as const;
 const SAFE_ENV_NAMES = new Set(["CI", "LANG", "NODE_ENV", "TZ"]);
 const SAFE_POLICY_FAILURES = new Set([
-  "Sandbox container did not preserve the required non-root process settings.",
-  "Sandbox container did not preserve the requested direct command.",
+  "Sandbox container did not preserve the required non-root process and bounded input settings.",
+  "Sandbox container did not preserve the trusted bootstrap and requested direct command.",
   "Sandbox container security mode does not match the approved isolated policy.",
   "Sandbox container resource limits do not match the approved bounds.",
   "Sandbox container did not preserve private process, UTS, and cgroup namespaces.",
@@ -47,6 +53,7 @@ export type DockerContainerSpec = {
   AttachStderr: boolean;
   AttachStdin: boolean;
   OpenStdin: boolean;
+  StdinOnce: boolean;
   Labels: Record<string, string>;
   HostConfig: {
     AutoRemove: boolean;
@@ -225,6 +232,62 @@ export class DockerEngineClient {
       request.end();
     });
   }
+
+  sendWorkspaceArchive(containerId: string, archive: Buffer, signal?: AbortSignal): Promise<void> {
+    if (!/^[a-f0-9]{12,64}$/i.test(containerId)) return Promise.reject(new Error("Docker container ID is invalid."));
+    if (signal?.aborted) return Promise.reject(new Error("Docker Engine request was cancelled."));
+    const path = `/${DOCKER_API_VERSION}/containers/${containerId}/attach?stream=1&stdin=1&stdout=0&stderr=0`;
+    return new Promise((resolvePromise, rejectPromise) => {
+      let settled = false;
+      const settle = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        signal?.removeEventListener("abort", onAbort);
+        if (error) rejectPromise(error);
+        else resolvePromise();
+      };
+      let socket: import("node:stream").Duplex | undefined;
+      const onAbort = () => {
+        socket?.destroy(new Error("Docker Engine request was cancelled."));
+        request.destroy(new Error("Docker Engine request was cancelled."));
+      };
+      const request = httpsRequest({
+        protocol: "https:",
+        hostname: this.host.hostname,
+        port: this.host.port || 443,
+        path,
+        method: "POST",
+        ca: this.tls.ca,
+        cert: this.tls.cert,
+        key: this.tls.key,
+        rejectUnauthorized: true,
+        headers: { connection: "Upgrade", upgrade: "tcp", "content-length": "0" },
+      }, (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer | string) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+        response.on("end", () => settle(errorMessage(response.statusCode ?? 0, "POST", path, Buffer.concat(chunks))));
+        response.on("error", (error) => settle(error));
+      });
+      request.on("upgrade", (response, upgradedSocket, head) => {
+        if (response.statusCode !== 101) {
+          upgradedSocket.destroy();
+          settle(errorMessage(response.statusCode ?? 0, "POST", path, head));
+          return;
+        }
+        socket = upgradedSocket;
+        socket.on("data", () => undefined);
+        socket.on("error", (error) => settle(error));
+        socket.on("close", () => {
+          if (!settled) settle(new Error("Docker Engine closed the workspace input stream early."));
+        });
+        if (head.byteLength) socket.unshift(head);
+        socket.end(archive, () => settle());
+      });
+      request.on("error", (error) => settle(error));
+      signal?.addEventListener("abort", onAbort, { once: true });
+      request.end();
+    });
+  }
 }
 
 function parseJson<T>(response: DockerResponse): T {
@@ -262,7 +325,7 @@ export function buildDockerContainerSpec(
   const logKibibytes = Math.max(1, Math.ceil(outputBytes / 1024));
   return {
     Image: image,
-    Entrypoint: [],
+    Entrypoint: [...SANDBOX_ENTRYPOINT],
     Cmd: request.command,
     Env: [
       "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
@@ -276,8 +339,9 @@ export function buildDockerContainerSpec(
     Tty: false,
     AttachStdout: true,
     AttachStderr: true,
-    AttachStdin: false,
-    OpenStdin: false,
+    AttachStdin: true,
+    OpenStdin: true,
+    StdinOnce: true,
     Labels: { "atsh.sandbox": "true", "atsh.job.id": request.jobId },
     HostConfig: {
       AutoRemove: false,
@@ -310,7 +374,7 @@ export function buildDockerContainerSpec(
 }
 
 export function assertCreatedContainerSecurity(inspect: {
-  Config?: { User?: string; Tty?: boolean; OpenStdin?: boolean; Entrypoint?: string[] | null; Cmd?: string[] };
+  Config?: { User?: string; Tty?: boolean; OpenStdin?: boolean; StdinOnce?: boolean; Entrypoint?: string[] | null; Cmd?: string[] };
   HostConfig?: {
     Privileged?: boolean;
     ReadonlyRootfs?: boolean;
@@ -337,12 +401,13 @@ export function assertCreatedContainerSecurity(inspect: {
   Mounts?: Array<{ Type?: string; Destination?: string; RW?: boolean }>;
 }, outputBytes = 2_000_000, expectedCommand?: string[]): void {
   const host = inspect.HostConfig;
-  if (inspect.Config?.User !== "65532:65532" || inspect.Config.Tty !== false || inspect.Config.OpenStdin !== false) {
-    throw new Error("Sandbox container did not preserve the required non-root process settings.");
+  if (inspect.Config?.User !== "65532:65532" || inspect.Config.Tty !== false ||
+      inspect.Config.OpenStdin !== true || inspect.Config.StdinOnce !== true) {
+    throw new Error("Sandbox container did not preserve the required non-root process and bounded input settings.");
   }
-  if ((inspect.Config.Entrypoint?.length ?? 0) !== 0 ||
+  if (JSON.stringify(inspect.Config.Entrypoint) !== JSON.stringify(SANDBOX_ENTRYPOINT) ||
       (expectedCommand && JSON.stringify(inspect.Config.Cmd) !== JSON.stringify(expectedCommand))) {
-    throw new Error("Sandbox container did not preserve the requested direct command.");
+    throw new Error("Sandbox container did not preserve the trusted bootstrap and requested direct command.");
   }
   if (!host || host.Privileged !== false || host.ReadonlyRootfs !== true || host.NetworkMode !== "none" || host.IpcMode !== "none") {
     throw new Error("Sandbox container security mode does not match the approved isolated policy.");
@@ -523,15 +588,8 @@ export class DockerSandboxBackend implements SandboxBackend {
       const inspect = parseJson<Parameters<typeof assertCreatedContainerSecurity>[0]>(inspectResponse);
       assertCreatedContainerSecurity(inspect, request.maxOutputBytes, request.command);
 
-      await this.client.request(
-        `/${DOCKER_API_VERSION}/containers/${containerId}/archive?path=%2Fworkspace`,
-        "PUT",
-        workspaceTar,
-        operationSignal,
-        1_000_000,
-        "application/x-tar",
-      );
       await this.client.request(`/${DOCKER_API_VERSION}/containers/${containerId}/start`, "POST", undefined, operationSignal, 1_000_000);
+      await this.client.sendWorkspaceArchive(containerId, workspaceTar, operationSignal);
       const wait = await this.client.request(
         `/${DOCKER_API_VERSION}/containers/${containerId}/wait?condition=not-running`,
         "POST",

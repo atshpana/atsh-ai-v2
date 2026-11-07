@@ -69,3 +69,7 @@
 ## ENG-03 pre-start mount inspection — 2026-11-07
 - Head `e2426b05e669b4619ef26d9fde888b340a0ab84f` showed that `Mounts` is empty when Docker inspects the newly created container before start, although the exact `HostConfig.Tmpfs` settings pass validation.
 - Retain strict pre-start checks for exactly `/workspace` and `/tmp`, sizes, and read-only root. Permit an empty pre-start `Mounts` list because the tmpfs mounts have not been materialized; reject every non-empty mount list that differs from policy. Verify actual tmpfs type and size from inside the running acceptance container before marking ENG-03 complete.
+
+## ENG-03 read-only workspace staging — 2026-11-07
+- Docker's archive PUT endpoint returned HTTP 400 when writing workspace data into a read-only-root container. Do not make root writable for staging.
+- Start the container with a pinned trusted bootstrap only, feed the validated workspace tar through the attach stdin stream, and close stdin once. The trusted bootstrap extracts under the bounded `/workspace` tmpfs and then `exec`s the requested command argv. Keep network disabled, root read-only, and credentials absent. The mTLS proxy tunnels only this exact attach route; reject all other upgrade requests.
