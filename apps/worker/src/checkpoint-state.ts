@@ -33,7 +33,7 @@ export function requiredFilePaths(input: unknown): string[] {
   const found = new Set<string>();
   const visit = (value: unknown): void => {
     if (typeof value === "string") {
-      const pattern = /(?:^|[\\s"'(])((?:[A-Za-z0-9_.-]+\\/)*[A-Za-z0-9_.-]+\\.(?:md|mdx|ts|tsx|js|jsx|json|sql|prisma|ya?ml|toml|txt|sh|css|html))(?=$|[\\s"',;)])/g;
+      const pattern = /(?:^|[\s"'(])((?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+\.(?:md|mdx|ts|tsx|js|jsx|json|sql|prisma|ya?ml|toml|txt|sh|css|html))(?=$|[\s"',;)])/g;
       for (const match of value.matchAll(pattern)) {
         const path = match[1];
         if (path && !path.includes("://")) found.add(path);
