@@ -43,6 +43,7 @@ jobs:
             docker:29.9.3-dind-rootless@sha256:e3d0fa70055956693134873845b743bbe35b5199c68a52347032ae3e5dbac9a0 \
             --label=atsh.sandbox=true
       - name: Wait for isolated rootless Docker daemon
+        id: sandbox-daemon
         run: |
           export DOCKER_HOST=tcp://127.0.0.1:2375
           for attempt in $(seq 1 60); do
@@ -62,8 +63,16 @@ jobs:
           docker build --file Dockerfile.sandbox --tag atsh-sandbox:ci .
           daemon_id=$(docker info --format '{{.ID}}')
           image_id=$(docker image inspect --format '{{.Id}}' atsh-sandbox:ci)
-          echo "SANDBOX_DOCKER_EXPECTED_DAEMON_ID=$daemon_id" >> "$GITHUB_ENV"
-          echo "SANDBOX_IMAGE=$image_id" >> "$GITHUB_ENV"
+          if [[ ! "$daemon_id" =~ ^[a-fA-F0-9]{64}$ ]]; then
+            echo "::error title=Sandbox daemon identity::Docker Engine returned no valid 64-character daemon ID."
+            exit 1
+          fi
+          if [[ ! "$image_id" =~ ^sha256:[a-fA-F0-9]{64}$ ]]; then
+            echo "::error title=Sandbox image identity::Docker Engine returned no valid immutable image ID."
+            exit 1
+          fi
+          echo "daemon_id=$daemon_id" >> "$GITHUB_OUTPUT"
+          echo "image_id=$image_id" >> "$GITHUB_OUTPUT"
       - name: Create ephemeral mutual TLS test certificates
         run: |
           cert_dir="$RUNNER_TEMP/atsh-sandbox-mtls"
@@ -100,6 +109,9 @@ jobs:
           echo $! > "$RUNNER_TEMP/atsh-sandbox-proxy.pid"
           sleep 1
       - name: Run worker sandbox integration acceptance
+        env:
+          SANDBOX_DOCKER_EXPECTED_DAEMON_ID: ${{ steps.sandbox-daemon.outputs.daemon_id }}
+          SANDBOX_IMAGE: ${{ steps.sandbox-daemon.outputs.image_id }}
         run: |
           set +e
           npm test --workspace @atsh/worker 2>&1 | tee "$RUNNER_TEMP/atsh-sandbox-test.log"
