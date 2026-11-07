@@ -28,7 +28,7 @@ The owner confirms Coolify, GitHub repository/branches/permissions, existing ser
 - PR #30: worker tool-loop integration for `workspace_write_file`.
 - PR #30 CI, CodeQL, Dependency Review: success for that PR head.
 - Worker queue/lease/retry/event/checkpoint foundation and read-only GitHub inspection retained.
-- PR #32 merged into implementation/bootstrap at commit `ebeabf4de468783d0cc7fc68b0738abc17d4054b` after all required checks passed. It adds a fail-closed sandbox contract only; no concrete runtime backend.
+- PR #32 merged into implementation/bootstrap at commit `ebeabf4de468783d0cc7fc68b0738abc17d4054b` after all required checks passed. It adds a fail-closed sandbox contract only; no concrete runtime backend. PR #33 validation completed successfully: CI typecheck/build/unit tests, CodeQL and Dependency Review all passed on head `2ec0b9bc7300f2157d3471149845b6b573de897b`.
 
 ## Current technical boundary
 The worker can create new files in a per-job workspace. It does not yet have a proven isolated command/build/test runtime. Running generated/customer-controlled scripts with only `cwd=workspace`, an allowlist, timeout, or environment filtering is not OS isolation and is prohibited.
