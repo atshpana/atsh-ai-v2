@@ -76,3 +76,14 @@ No production database, schema, service, secret, merge to `main`, or deployment 
 
 ## Source-to-test evidence mapping
 Added `docs/HAI-CODE-TEST-EVIDENCE-MAP.md` at commit `1d93867641a38e6f29e3ad5ebc5788489f35b574`. It maps production-line and product requirement families to concrete source paths and available focused tests at audited revision `ebeabf4de468783d0cc7fc68b0738abc17d4054b`. It explicitly distinguishes UI scaffolds, schema foundations, unit-tested primitives, missing end-to-end workflows and unverified live runtime facts. This does not close HAI requirements or satisfy GATE-01.
+
+
+## Direct coding-agent handoff — 2026-11-07
+- Added `docs/CODING-AGENT-HANDOFF.md` as the executable assignment for a coding agent to complete the production-line engine in this repository.
+- Owner confirms Coolify, GitHub, database/backup preparation and OpenAI key preparation are complete; the owner updated the existing Worker `OPENAI_API_KEY` and observed a successful Coolify rolling update followed by `ATSH AI agent worker started` in runtime logs. These are owner-observed operational facts, not proof of a successful model request or coding task.
+- No repeated environment-variable/key setup is requested. The configured `OPENAI_MODEL` shown by the owner was `gpt-6.1-sol`; agent must verify it with a minimal API call and correct only if an actual API error demonstrates it is invalid.
+- Verified implementation baseline remains unchanged: durable queue/leases/retries/events/checkpoints, persisted planning, read-only GitHub inspection, per-job workspace and workspace file-write integration. Sandbox PR #32 is contract-only; no concrete isolated execution backend exists yet.
+- Immediate delegated implementation target: ENG-03 concrete fail-closed sandbox. Continue ENG-04 automated immutable HAI intake, ENG-05 safe DB discovery, ENG-06 task graph/dispatch, ENG-07 GitHub write/PR lifecycle, ENG-08 model adapter/spend accounting, ENG-09 isolated build/test, ENG-10 preview/revisions/approval, ENG-11 n8n orchestration, ENG-12 controlled release/deployment and ENG-13 security/pilot.
+- GATE-01 is narrowed to missing safety evidence only. Repository implementation and CI may proceed now; generated/customer code execution and production-impacting operations remain gated on concrete isolation, least privilege, backup/rollback and release acceptance.
+- The owner delegated tool/dependency selection, implementation, final merge and production-change authority, and spending from available prepaid/API balance until exhausted. No borrowing or commitments beyond available funds. Apply the safeguards in the handoff.
+- This handoff change does not itself implement the sandbox or launch a coding agent process. It records the immediate assignment for the connected coding-agent environment.
