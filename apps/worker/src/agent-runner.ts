@@ -59,8 +59,11 @@ const githubToken = process.env.GITHUB_TOKEN;
 async function githubContents(path: string): Promise<string> {
   if (!githubToken) throw new Error("GITHUB_TOKEN is required for repository inspection.");
   if (githubRepository !== "atshpana/atsh-ai-v2") throw new Error("Repository is not in the worker allowlist.");
-    const normalized = path.replace(/^\/+/, "");
-  if (!normalized || normalized.split("/").some((part) => part === "..")) throw new Error("Invalid repository path.");
+  const requestedPath = typeof path === "string" ? path.trim().replace(/\\/g, "/") : "";
+  const normalized = requestedPath.replace(/^\/+/, "");
+  if (!normalized || normalized.split("/").some((part) => !part || part === "." || part === "..")) {
+    throw new Error("Invalid repository path. Use a non-empty repository-relative path such as README.md or apps/worker/src/agent-runner.ts.");
+  }
   const response = await fetch(`https://api.github.com/repos/${githubRepository}/contents/${normalized}?ref=${encodeURIComponent(githubRef)}`, {
     headers: { Authorization: `Bearer ${githubToken}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
     signal: AbortSignal.timeout(20000),
@@ -102,7 +105,7 @@ const tools = [
   {
     type: "function",
     name: "github_read_file",
-    description: "Read a text file or list a directory in the allowlisted ATSH AI repository. Read-only.",
+    description: "Read one text file or list one directory in the allowlisted ATSH AI repository. Supply an exact repository-relative path (for example README.md or apps/worker/src/agent-runner.ts). May be called repeatedly for multiple files. Read-only.",
     strict: true,
     parameters: {
       type: "object",
@@ -267,8 +270,7 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is required; no model call was attempted.");
   if (!model) throw new Error("OPENAI_MODEL must be explicitly configured; no model call was attempted.");
-  const alreadyReadGitHub = checkpoint.includes("GitHub read result for ");
-  const availableTools = alreadyReadGitHub ? tools.filter((tool) => tool.name !== "github_read_file") : tools;
+  const availableTools = tools;
   const body: Record<string, unknown> = {
     model,
     store: false,
@@ -281,7 +283,7 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
       "Request human approval before production deployment, destructive changes, spending, or undocumented decisions.",
       "This worker exposes read-only GitHub inspection only when configured. It cannot edit repositories, run tests, or deploy.",
       "When the task contains a project brief or asks which tools/integrations are needed, call plan_project_tools first. Explain its plan and approval gates; never claim tools were provisioned or connected.",
-      ...(alreadyReadGitHub ? ["A GitHub file has already been read and its complete available content is included in previousCheckpoint. Do not inspect GitHub again; use that evidence and call complete_job with a concise summary and evidence."] : []),
+      "For repository inspection, call github_read_file with one exact repository-relative path per call. You may call it repeatedly for different files; never use absolute paths, empty paths, backslashes, or parent-directory segments (..). After each read, use the returned content and continue with the next required file until the requested inspection is complete.",
     ].join(" "),
     input: JSON.stringify({ task: job.input, previousCheckpoint: checkpoint }),
     tools: availableTools,
