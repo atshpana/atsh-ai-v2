@@ -80,7 +80,7 @@ Created `docs/HAI-REQUIREMENT-TRACEABILITY-BASELINE.md` from the fixed executive
 ## Next sequence
 1. ENG-03 repository/typecheck and real rootless CI acceptance passed on d548dbd497f6cca711b1b9b89ecab875378e3571; do not enable the model command tool in deployed Worker configuration without the separate GATE-01 deployment evidence.
 2. Close only residual GATE-01 evidence: actual isolated daemon identity/network separation, least-privilege agent-db target, and backup/rollback evidence before any production-impacting operation. Phase 1 remains INCOMPLETE — NOT READY; broad setup checks are complete and will not be repeated.
-3. Implement and validate ENG-04 automated immutable HAI intake, then continue in order with read-only existing-database discovery (ENG-05). ENG-04 CI and migration review are pending on the new code change.
+3. ENG-04 branch typecheck/build/unit checks and real rootless sandbox acceptance passed at `7793aff6ca1e92605312f6b9424e807a9a3e59c6`; validate the additive HAI migration on a dedicated ephemeral PostgreSQL database, then require an approved HAI source before marking intake accepted. Continue to ENG-05 only after ENG-04 acceptance.
 4. Continue task graph, restricted GitHub write lifecycle, spend controls, isolated build/test evidence, preview, revisions, exact-version approvals, n8n integration, and release gates.
 5. Keep the ATSH AI customer product separate from this factory implementation and keep all unverified requirement/evidence links open.
 
@@ -148,3 +148,9 @@ Added `docs/HAI-CODE-TEST-EVIDENCE-MAP.md` at commit `1d93867641a38e6f29e3ad5ebc
 - Worker intake tools require an explicit job-bound haiSource path/version, retrieve exact source bytes at a resolved commit, and persist the SHA-256, blob SHA, version, commit/ref, raw bytes, and extractor version in append-only agent-db records. Deterministic Markdown/TXT extraction stores typed source excerpts and line ranges; bounded readers page items, and evidence proposals remain unverified.
 - Migration adds source, item, job association, and evidence tables with update/delete/truncate-blocking triggers. It is additive and intended for manually reviewed application on agent-db only; it has not been applied, and no actual HAI master file has been ingested.
 - Local supported worker suite: 47 passed, 0 failed, 1 local Docker integration skip; git diff --check passed. TypeScript/CI on the new ENG-04 commit and migration review are pending. Unsupported PDF/Word ingestion and completeness/conflict analysis remain open.
+
+
+## ENG-04 acceptance evidence — 2026-11-07
+- On branch head `7793aff6ca1e92605312f6b9424e807a9a3e59c6`, CI run `42412899138`, CodeQL run `42412899142`, and Dependency Review run `42412899135` completed successfully. CI passed API tests 5/5, worker tests 51 passed/0 failed/1 local-Docker skip, all workspace typechecks and builds. The separate rootless Sandbox Integration run `42412899164` passed the worker suite 52/52 with the real Docker integration enabled.
+- CI generated a Prisma baseline preview; it did not apply or execute the new raw SQL migration. A new acceptance workflow applies the three API migrations to an empty disposable PostgreSQL 16 service and checks append-only behavior. Its result is pending on the next branch head.
+- Repository inventory found no approved HAI master source file; only derived traceability/audit documents are present. No migration was applied to agent-db or core-db, and no production change occurred. ENG-04 remains open.
