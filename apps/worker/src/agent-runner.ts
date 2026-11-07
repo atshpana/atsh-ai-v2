@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { appendToolOutput, parseCheckpoint, rememberFile, requiredFilePaths, serializeCheckpoint, type AgentCheckpoint } from "./checkpoint-state.js";
+import { appendToolOutput, ensureTaskContext, parseCheckpoint, rememberFile, requiredFilePaths, serializeCheckpoint, type AgentCheckpoint } from "./checkpoint-state.js";
 import { Pool, type PoolClient } from "pg";
 import { planTools, type CostClass, type ProjectBrief, type ProjectKind } from "./tool-orchestrator.js";
 
@@ -271,8 +271,8 @@ async function persistToolPlan(job: Job, brief: ProjectBrief, plan: ReturnType<t
 async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Promise<Decision> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey || !model) throw new Error("OpenAI API key and model are required.");
-  const state = parseCheckpoint(checkpoint);
-  if (state.history.length === 0) state.history.push({ role: "user", content: JSON.stringify({ task: job.input, acceptanceCriteria: (job.input as Record<string, unknown>).acceptanceCriteria ?? null }) });
+  const state = parseCheckpoint(checkpoint, job.input);
+  ensureTaskContext(state, job.input);
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
@@ -457,7 +457,7 @@ async function processJob(job: Job) {
       await finish(job.id, "waiting_approval", decision.reason, decision.responseId);
       return;
     }
-    await saveCheckpoint(job.id, job.last_response_id, "Turn limit reached; safely yielding for the next worker claim.");
+    await saveCheckpoint(job.id, job.last_response_id, checkpoint);
     await pool.query(
       "UPDATE agent_jobs SET status='queued', lease_owner=NULL, lease_expires_at=NULL, available_at=NOW(), completed_at=NULL, updated_at=NOW() WHERE id=$1 AND lease_owner=$2 AND status='running'",
       [job.id, workerId],
