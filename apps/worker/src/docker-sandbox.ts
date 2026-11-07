@@ -566,6 +566,7 @@ export class DockerSandboxBackend implements SandboxBackend {
     const operationSignal = AbortSignal.any(signals);
     let timedOut = false;
     const startedAt = performance.now();
+    let integrationStage: "container-create" | "policy-inspection" | "container-start" | "workspace-input" | "command-wait" | "command-logs" | "workspace-output" | "workspace-apply" = "container-create";
     const timer = setTimeout(() => {
       timedOut = true;
       controller.abort();
@@ -585,12 +586,16 @@ export class DockerSandboxBackend implements SandboxBackend {
       if (!created.Id || !/^[a-f0-9]{12,64}$/i.test(created.Id)) throw new Error("Docker Engine did not return a valid sandbox container ID.");
       containerId = created.Id;
 
+      integrationStage = "policy-inspection";
       const inspectResponse = await this.client.request(`/${DOCKER_API_VERSION}/containers/${containerId}/json`, "GET", undefined, operationSignal, 1_000_000);
       const inspect = parseJson<Parameters<typeof assertCreatedContainerSecurity>[0]>(inspectResponse);
       assertCreatedContainerSecurity(inspect, request.maxOutputBytes, request.command);
 
+      integrationStage = "container-start";
       await this.client.request(`/${DOCKER_API_VERSION}/containers/${containerId}/start`, "POST", undefined, operationSignal, 1_000_000);
+      integrationStage = "workspace-input";
       await this.client.sendWorkspaceArchive(containerId, workspaceTar, operationSignal);
+      integrationStage = "command-wait";
       const wait = await this.client.request(
         `/${DOCKER_API_VERSION}/containers/${containerId}/wait?condition=not-running`,
         "POST",
@@ -606,6 +611,7 @@ export class DockerSandboxBackend implements SandboxBackend {
         throw new Error("Docker Engine did not return a sandbox exit status.");
       }
 
+      integrationStage = "command-logs";
       const logResponse = await this.client.request(
         `/${DOCKER_API_VERSION}/containers/${containerId}/logs?stdout=1&stderr=1`,
         "GET",
@@ -615,12 +621,14 @@ export class DockerSandboxBackend implements SandboxBackend {
       );
       const logs = demultiplexDockerLogs(logResponse.body, request.maxOutputBytes);
 
+      integrationStage = "workspace-output";
       const archiveResponse = await this.client.request(
         `/${DOCKER_API_VERSION}/containers/${containerId}/archive?path=%2Fworkspace`,
         "GET",
         undefined,
         operationSignal,
       );
+      integrationStage = "workspace-apply";
       await applyWorkspaceTar(workspace, archiveResponse.body);
       return {
         exitCode,
@@ -635,6 +643,9 @@ export class DockerSandboxBackend implements SandboxBackend {
       if (policyDiagnostic) throw new Error(`Sandbox command failed. ${policyDiagnostic}`);
       if (error instanceof Error && /^Docker Engine request failed with HTTP \d{3} for (GET|POST|PUT|DELETE) \/v1\.45\//.test(error.message)) {
         throw new Error(`Sandbox command failed. ${error.message} Response details were suppressed.`);
+      }
+      if (process.env.SANDBOX_INTEGRATION === "1") {
+        throw new Error(`Sandbox command failed during integration stage ${integrationStage}.`);
       }
       throw new Error("Sandbox command failed. Docker Engine returned an error; sensitive details were suppressed.");
     } finally {

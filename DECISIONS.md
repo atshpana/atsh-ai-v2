@@ -77,3 +77,4 @@
 ## ENG-03 bounded local log configuration — 2026-11-07
 - Head `53216985014e3ca20bcaf8c761a8ca43a09f8e97` reached container start but Docker rejected local log config because compression defaults to enabled with `max-file=1`.
 - Set `compress=false` explicitly and continue checking `max-file=1` plus the request-specific `max-size`. This preserves bounded output storage and avoids increasing the file count. Docker documents this option in its [local logging driver reference](https://docs.docker.com/engine/logging/drivers/local/).
+- The next daemon run passed container start but failed with a generic error after startup. In integration mode only, report one fixed stage label for create/inspect/start/stdin/wait/logs/output; do not log raw exception strings. Production continues returning the generic suppressed failure.
