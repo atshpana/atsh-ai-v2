@@ -454,7 +454,8 @@ async function processJob(job: Job) {
         await finish(job.id, "succeeded", decision.result, decision.responseId);
         return;
       }
-      await saveCheckpoint(job.id, decision.responseId, decision.checkpoint);\n      await finish(job.id, "waiting_approval", decision.reason, decision.responseId);
+      await saveCheckpoint(job.id, decision.responseId, decision.checkpoint);
+      await finish(job.id, "waiting_approval", decision.reason, decision.responseId);
       return;
     }
     await saveCheckpoint(job.id, job.last_response_id, checkpoint);
