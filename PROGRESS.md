@@ -3,37 +3,34 @@
 ## Current status — 2026-11-07
 
 **Repository:** `atshpana/atsh-ai-v2`  
-**Canonical working base:** `implementation/bootstrap`  
-**Current audit branch:** `docs/update-engine-audit-2026-11-07`  
-**Overall:** Existing engine foundation recovered; practical execution capabilities remain incomplete.
+**Base branch:** `implementation/bootstrap`  
+**Latest completed change:** PR #30 merged at `78a2fd5ce6745e816668d7858bd8d984e3ee78a7`.
 
-## Completed by owner confirmation
-- Coolify services/settings readiness.
-- GitHub repository/branches/permissions readiness.
-- core-db data and backup preparation.
-- Existing OpenAI key preparation.
+## Owner-confirmed prerequisites
+Coolify, GitHub repo/branches/permissions, core-db/backup, and existing OpenAI key preparation are confirmed complete by the owner. These are not independently re-tested here and will not be broadly repeated.
 
-These are owner-confirmed, not independently re-tested in this code audit. No broad re-check is scheduled.
+## Completed
+- PR #28: governance baseline.
+- PR #29: task/progress/decision audit.
+- PR #27: isolated per-job workspace writer primitive.
+- PR #30: worker tool-loop integration for `workspace_write_file`.
+- PR #30 CI: CI success, CodeQL success, Dependency Review success.
+- Existing worker queue/lease/retry/event/checkpoint foundation and read-only GitHub inspection retained.
 
-## Repository work completed
-- ENG-01 governance baseline merged in PR #28 at `a26b8fe0ff9dca2d9c570fbe6d412fd58f798a09`.
-- Worker foundation exists: PostgreSQL queue claim, lease/heartbeat, retries, job events, checkpoints, OpenAI Responses loop, graceful shutdown.
-- Capability/tool planner persists versioned plans and plan events; it is metadata/planning only and sets `executionAllowed: false`.
-- GitHub inspection is read-only and allowlisted; it preserves full file contents within its size limit.
-- Historical PRs #20–#26 fixed read duplication, SQL completion typing, multi-file inspection, tool-loop resume/checkpointing, checkpoint build/context, and file truncation.
-
-## Important open work / not yet delivered
-- PR #27 is a **draft and unmerged**. It adds per-job workspace creation and guarded file writing with tests, but is not wired into the worker tool loop.
-- The current worker tool list exposes planning, GitHub read, progress, completion, and approval; it does not expose workspace write or shell/build/test execution.
-- Current worker loop claims one job at a time per process. No verified parent/child task decomposition, dependency scheduler, or multi-agent result aggregation is present in the inspected implementation.
-- No end-to-end software build/test/preview/PR/deploy path is verified.
-- No live DB/Coolify query was performed in this audit; runtime state is not inferred from source code.
+## Current technical boundary
+The worker can now create new files in its per-job workspace. It still cannot safely execute build/test commands. Running customer-controlled scripts with `cwd=workspace` in the worker process would not isolate filesystem, network, credentials, or process resources; do not implement that shortcut.
 
 ## Active task
-**ENG-02 — Integrate isolated workspace writing into the worker tool loop.**
+**ENG-03 — Design and implement a fail-closed sandbox execution adapter.**
 
-## Next sequence
-ENG-02 workspace tool integration → ENG-03 bounded command/build/test executor → ENG-04 durable decomposition and dispatch → GitHub PR workflow → spec intake/model controls/n8n/approval gates → non-production pilot.
+First identify and validate a real OS/container sandbox boundary. Until then, only implement a strict policy/interface that refuses execution when no approved backend is configured.
+
+## Not yet verified
+- Build/test execution in an isolated runtime.
+- Parent/child task graph and actual multi-worker dispatch/result aggregation.
+- GitHub branch/commit/PR write integration.
+- Full spec-to-preview-to-revision-to-version-bound-approval delivery.
+- Live Coolify/DB runtime state.
 
 ## Safety
-No production service, database, secret, or deployment was changed by this audit update. No merge to `main` or production deployment is authorized by this status report.
+No production DB, service, secret, or deployment was changed in this update. No merge to main or production deployment.
