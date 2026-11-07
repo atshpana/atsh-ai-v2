@@ -5,6 +5,7 @@ import {
   assertDockerDaemonIdentity,
   buildDockerContainerSpec,
   demultiplexDockerLogs,
+  safeDockerDiagnostic,
 } from "./docker-sandbox.js";
 import type { SandboxCommandRequest } from "./sandbox-contract.js";
 
@@ -109,6 +110,18 @@ test("keeps decoded log output within the byte cap for multibyte UTF-8", () => {
   const frame = Buffer.from([1, 0, 0, 0, 0, 0, 0, 3, 0xe2, 0x82, 0xac]);
   const result = demultiplexDockerLogs(frame, 1);
   assert.equal(Buffer.byteLength(result.stdout) + Buffer.byteLength(result.stderr) <= 1, true);
+});
+
+test("sanitizes Docker diagnostics before opt-in integration logging", () => {
+  const diagnostic = safeDockerDiagnostic(Buffer.from(JSON.stringify({
+    message: `invalid mount /home/runner/work/private token=secret-value sha256:${"a".repeat(64)} 123e4567-e89b-12d3-a456-426614174000`,
+  })));
+  assert.ok(diagnostic);
+  assert.equal(diagnostic.includes("secret-value"), false);
+  assert.equal(diagnostic.includes("/home/runner"), false);
+  assert.equal(diagnostic.includes("a".repeat(64)), false);
+  assert.equal(diagnostic.includes("123e4567-e89b-12d3-a456-426614174000"), false);
+  assert.equal(diagnostic.length <= 160, true);
 });
 
 test("refuses an inspected container whose effective security settings differ from policy", () => {

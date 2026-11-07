@@ -83,9 +83,30 @@ export type DockerSandboxConfig = {
   workspaceRoot: string;
 };
 
-function errorMessage(statusCode: number, method: string, path: string): Error {
+export function safeDockerDiagnostic(body: Buffer): string | undefined {
+  let message = body.toString("utf8").trim();
+  try {
+    const parsed = JSON.parse(message) as { message?: unknown };
+    if (typeof parsed.message === "string") message = parsed.message;
+  } catch {
+    // Docker usually returns JSON, but keep a bounded plain-text response if it does not.
+  }
+  message = message
+    .replace(/\b(authorization|token|secret|password|api[_ -]?key)\b\s*[:=]\s*[^,\s;]+/gi, "$1=[redacted]")
+    .replace(/sha256:[a-f0-9]{64}/gi, "sha256:[redacted]")
+    .replace(/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}/gi, "[id]")
+    .replace(/\/(?:home|tmp|var|run)\/[^\s,:;]+/gi, "[path]")
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/[^\x20-\x7e]/g, "?")
+    .trim()
+    .slice(0, 160);
+  return message || undefined;
+}
+
+function errorMessage(statusCode: number, method: string, path: string, body: Buffer): Error {
   const route = path.split("?", 1)[0]!.replace(/\/containers\/[a-f0-9-]{12,64}(?=\/|$)/gi, "/containers/:id");
-  return new Error(`Docker Engine request failed with HTTP ${statusCode} for ${method} ${route}.`);
+  const diagnostic = process.env.SANDBOX_INTEGRATION === "1" ? safeDockerDiagnostic(body) : undefined;
+  return new Error(`Docker Engine request failed with HTTP ${statusCode} for ${method} ${route}.${diagnostic ? ` ${diagnostic}` : ""}`);
 }
 
 export class DockerEngineClient {
@@ -151,7 +172,7 @@ export class DockerEngineClient {
             body: Buffer.concat(chunks),
           };
           const successful = result.statusCode >= 200 && result.statusCode < 300;
-          if (!successful) rejectPromise(errorMessage(result.statusCode, method, path));
+          if (!successful) rejectPromise(errorMessage(result.statusCode, method, path, result.body));
           else resolvePromise(result);
         });
       });
