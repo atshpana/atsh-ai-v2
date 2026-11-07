@@ -42,7 +42,7 @@
 - Implement the backend against the Docker Engine API over HTTPS/mTLS, with a pinned daemon ID, the `atsh.sandbox=true` daemon label, Linux/rootless mode, and cgroup limit support. Do not use the Coolify host daemon or mount its Docker socket into the Worker.
 - Run one disposable, non-root container per command from an immutable image digest. Enforce `NetworkMode=none`, disabled IPC, private PID/UTS/cgroup namespaces, read-only root, no host bind/device/port mounts, UID 65532, dropped capabilities, no-new-privileges, exactly two bounded tmpfs mounts, CPU/memory/PID/time/output limits, cancellation and cleanup. Inspect effective settings and reject deviations before start.
 - The sandbox receives no credentials and no network access. Package installation that requires a registry is not enabled; ENG-09 must use an approved artifact cache or a separately reviewed allowlist policy.
-- The Worker adds `sandbox_run_command` only after complete runtime configuration and daemon preflight. Sandbox variables are currently absent, and local Docker is unavailable; therefore this conditional path has not run against the deployed Worker. Do not treat ENG-03 as accepted until the real-runtime integration workflow and deployment-side GATE-01 evidence pass.
+- The Worker adds `sandbox_run_command` only after complete runtime configuration and daemon preflight. The ephemeral rootless integration acceptance passed on branch commit d548dbd497f6cca711b1b9b89ecab875378e3571, closing repository/runtime ENG-03 acceptance. Sandbox variables remain absent in Coolify; deployment-side GATE-01 evidence is still required before enabling the tool there.
 - No paid npm package or sandbox-runtime subscription was introduced; the Docker Engine client uses Node built-ins. The integration job uses the repository's existing GitHub Actions configuration and its existing usage quota.
 
 ## Rootless CI runner compatibility — 2026-11-07
@@ -98,3 +98,11 @@
 
 ## ENG-03 compile gate correction — 2026-11-07
 - The first Docker exec transport commit was blocked by TypeScript before the real sandbox test could run: `docker-sandbox.test.ts` retained an obsolete third argument after the spec builder API changed. Remove the stale argument and require CI typecheck/build plus the rootless acceptance to pass before treating the transport as viable.
+
+
+## ENG-04 immutable HAI intake decisions — 2026-11-07
+- Intake is permitted only for a Markdown/TXT path and source version explicitly supplied in the queued job as input.haiSource; the model cannot choose an arbitrary source/version. Resolve the configured GitHub ref first and fetch source bytes at that immutable commit.
+- Preserve exact UTF-8 bytes and SHA-256 plus GitHub blob/commit/repository/ref/path/version metadata in agent-db. Same path/version with changed bytes is a hard conflict; retries are idempotent. Extracted items and evidence proposals are append-only, with row-update/delete and table-truncate-blocking triggers.
+- Use deterministic source-linked extraction for typed items and explicit open questions. Do not infer missing business decisions. Page text is byte-bounded; the original source is not returned automatically. Proposed code/test/evidence links are pinned to a repository commit and stay unverified pending independent review.
+- Apply the additive migration only after manual review on the dedicated agent-db; never run it against core-db. No database migration was applied in this coding stage, and no HAI master source was ingested. PDF/Word conversion and semantic completeness/conflict review remain future work.
+- The new local worker suite passes 47 tests with one expected local real-Docker skip; branch TypeScript/CI and database migration review are still pending. ENG-04 is not marked complete until those checks and the source-intake acceptance evidence are available.
