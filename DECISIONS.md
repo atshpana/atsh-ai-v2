@@ -1,43 +1,54 @@
 # ATSH AI Engine — DECISIONS
 
-## Governing decisions
+## Binding decisions
 
 ### D-001 — Reference hierarchy
-**Status:** Binding  
-1. ATSH AI المرجع التنفيذي الثابت الشامل v2.0  
-2. ATSH AI المرجع الأم الشامل  
-3. ATSH AI مرجع معمارية خط الإنتاج والعقل المركزي v1.1  
-Higher-priority references prevail in any conflict.
+1. ATSH AI المرجع التنفيذي الثابت الشامل v2.0
+2. ATSH AI المرجع الأم الشامل
+3. ATSH AI مرجع معمارية خط الإنتاج والعقل المركزي v1.1
+Higher-priority references prevail.
 
-### D-002 — Infrastructure preparation status
-**Status:** Owner-confirmed complete — 2026-11-07  
-The owner confirms Coolify, GitHub repository/branches/permissions, core-db/data/backup, and OpenAI key preparation are complete and saved in project records. Do not repeat broad readiness checks. This is an owner attestation, not an independent retest by this commit.
+### D-002 — Infrastructure preparation
+Owner-confirmed complete on 2026-11-07: Coolify, GitHub repo/branches/permissions, core-db/data/backup, and existing OpenAI key preparation. Do not repeat broad checks. This is owner attestation, not independent runtime verification.
 
 ### D-003 — Initial model provider
-**Status:** Binding for initial implementation; provider choice remains open  
-Start with the owner's existing OpenAI key. Do not assume Anthropic or another provider. Inject the key only at runtime through Coolify environment variables, with task-scoped access and redacted logs. Never store the key in Git, source files, chat, or logs.
+Use the owner's existing OpenAI key for initial implementation. Inject only at runtime from Coolify environment variables, with task-scoped access and redacted logs. Never store secrets in Git, code, chat, or logs. Long-term provider choice remains open pending evidence.
 
-### D-004 — Model evaluation
-**Status:** Open / evidence collection  
-Record model quality, specification adherence, latency, reliability, and cost per representative task. Any provider comparison or switch requires a documented decision based on evidence.
+### D-004 — Production data boundary
+Existing `core-db` is production business data. Build Worker must not access it. Engine state belongs in isolated `agent-db`. No production DB changes without explicit scoped authorization and safeguards.
 
-### D-005 — Production database boundary
-**Status:** Binding  
-The existing `core-db` remains production business data. Build Worker must not have production core-db access. No destructive database operation or production deployment without the safeguards and approvals in the governing references.
+### D-005 — Approval traceability
+Every consequential approval is stored in `approvals` and linked to the exact release/version or commit SHA. Generic chat approval is not sufficient for production deployment.
 
-### D-006 — Approval traceability
-**Status:** Binding  
-Every consequential approval must be recorded in `approvals` and tied to the exact project release/version or commit SHA. A generic chat confirmation is insufficient for production deployment.
+### D-006 — Execution cadence
+One active task at a time; do not redo completed work without concrete evidence and a new scoped corrective task.
 
-### D-007 — Execution cadence
-**Status:** Binding  
-One task at a time. Do not repeat completed tasks without specific evidence and a separately scoped corrective task.
+## Code audit findings — 2026-11-07
+
+### A-001 — Durable worker foundation exists
+Current `implementation/bootstrap` source includes PostgreSQL queue claiming with `FOR UPDATE SKIP LOCKED`, leases, heartbeats, retries/backoff, event records, checkpoint persistence, and bounded model turns. Treat as existing implementation; do not recreate.
+
+### A-002 — Tool planner is not an executor
+`apps/worker/src/tool-orchestrator.ts` maintains capability metadata and produces persisted versioned plans. Its result explicitly states `executionAllowed: false`; it does not provision or invoke tools.
+
+### A-003 — GitHub integration is read-only
+Worker exposes `github_read_file` for allowlisted repository inspection. No verified GitHub write/commit/PR tool exists in the inspected worker tool loop.
+
+### A-004 — Workspace writer is pending integration
+PR #27 adds an isolated per-job workspace and guarded file-write primitive/tests. It remains draft/unmerged and is not referenced by the current worker tool loop. Do not count it as a delivered worker capability yet.
+
+### A-005 — No verified task decomposition/dispatch
+Inspected worker claims one job, runs its model loop, and finishes/requeues it. No verified parent-child task graph, dependency scheduler, bounded parallel dispatch, or result aggregation exists in this code path. Implement this after the worker can safely write files and execute bounded commands.
+
+### A-006 — No verified end-to-end delivery pipeline
+Build/test command execution, preview artifact production, client revision loop, version-bound approvals, and production deployment are not verified as implemented in the inspected worker path.
 
 ## Open decisions
-- Currency/payment-provider implementation details, only when required by the approved product scope.
-- Backup implementation details, only if a concrete implementation dependency remains after the owner's completed preparation.
-- Exact agent-db schema and migration plan, to be designed from the engine domain model without touching core-db.
-- Model-provider long-term selection after OpenAI evaluation evidence.
+- Exact task graph schema and concurrency limits, to be finalized in ENG-04 from actual agent-db migrations/schema.
+- Command allowlist and sandbox technology, to be decided in ENG-03 with a strict security boundary.
+- Model evaluation and spend limits based on representative task measurements.
+- Exact preview/hosting integration, after build artifacts and approval gates exist.
 
 ## Change log
-- 2026-11-07: Transferred execution baseline into the existing engine repository so review and continuation happen in the correct codebase.
+- 2026-11-07: Added execution baseline to correct engine repository.
+- 2026-11-07: Audited worker source and historical PRs; marked verified foundations and identified workspace integration and task-dispatch gaps.
