@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { appendToolOutput, ensureTaskContext, parseCheckpoint, rememberFile, requiredFilePaths, serializeCheckpoint, type AgentCheckpoint } from "./checkpoint-state.js";
 import { Pool, type PoolClient } from "pg";
 import { planTools, type CostClass, type ProjectBrief, type ProjectKind } from "./tool-orchestrator.js";
+import { createJobWorkspace, writeWorkspaceFile } from "./workspace-executor.js";
 
 type Job = {
   id: string;
@@ -126,6 +127,18 @@ const tools = [
       type: "object",
       properties: { path: { type: "string" } },
       required: ["path"],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "workspace_write_file",
+    description: "Create a new UTF-8 text file inside this job's isolated workspace. Paths are relative to the assigned workspace. Existing files cannot be overwritten; .env, .git, node_modules, traversal and absolute paths are forbidden. This tool does not run commands or deploy.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: { path: { type: "string" }, content: { type: "string" } },
+      required: ["path", "content"],
       additionalProperties: false,
     },
   },
@@ -296,7 +309,7 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
         "You are the ATSH AI autonomous engineering task manager. Work only within the supplied scope.",
         "Be truthful; do not claim actions without tool evidence. Use record_progress to checkpoint.",
         "Request human approval before production deployment, destructive changes, spending, or undocumented decisions.",
-        "This worker provides read-only GitHub inspection only; it cannot edit repositories, run tests, or deploy.",
+        "This worker can inspect the allowlisted GitHub repository and create files only inside the isolated per-job workspace. It cannot run shell commands, push code, merge pull requests, or deploy.",
         "Read every explicitly requested file. Call github_read_file for exact repository-relative paths. Previously read file contents are preserved; proceed to the next unread file and do not reread completed files.",
         "Use complete_job only after all requested files and acceptance criteria are satisfied with evidence."
       ].join(" ")
@@ -324,6 +337,11 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
         rememberFile(state, path, content);
         result = { path, cached: false, content };
       }
+    } else if (call.name === "workspace_write_file" && typeof args.path === "string" && typeof args.content === "string") {
+      const workspaceRoot = process.env.AGENT_WORKSPACE_ROOT;
+      if (!workspaceRoot) throw new Error("AGENT_WORKSPACE_ROOT is required before workspace writes are enabled.");
+      const workspace = await createJobWorkspace({ root: workspaceRoot, jobId: job.id });
+      result = await writeWorkspaceFile(workspace, args.path, args.content);
     } else if (call.name === "record_progress" && typeof args.note === "string") {
       result = { recorded: true, note: args.note };
     } else if (call.name === "complete_job" && args.result && typeof args.result === "object") {
