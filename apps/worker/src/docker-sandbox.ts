@@ -19,7 +19,7 @@ const CPU_NANO_CPUS = 1_000_000_000;
 export const SANDBOX_ENTRYPOINT = [
   "/bin/sh",
   "-c",
-  "tar -x -f - -C /workspace --no-same-owner || exit $?; rm -rf /workspace/.atsh-sandbox-result /workspace/.atsh-sandbox-result.tmp; \"$@\"; result=$?; printf '%s\\n' \"$result\" > /workspace/.atsh-sandbox-result.tmp; mv /workspace/.atsh-sandbox-result.tmp /workspace/.atsh-sandbox-result; exec sleep infinity",
+  "tar -x -f - -C /workspace --no-same-owner || exit $?; rm -rf /workspace/.atsh-sandbox-result /workspace/.atsh-sandbox-result.tmp || exit 125; \"$@\"; result=$?; printf '%s\\n' \"$result\" > /workspace/.atsh-sandbox-result.tmp || exit 125; mv /workspace/.atsh-sandbox-result.tmp /workspace/.atsh-sandbox-result || exit 125; exec sleep infinity",
   "atsh-sandbox-init",
 ] as const;
 const SAFE_ENV_NAMES = new Set(["CI", "LANG", "NODE_ENV", "TZ"]);
@@ -661,7 +661,10 @@ export class DockerSandboxBackend implements SandboxBackend {
         durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
       };
     } catch (error) {
-      if (timedOut) throw new Error(`Sandbox command timed out after ${request.timeoutMs} milliseconds.`);
+      if (timedOut) {
+        if (process.env.SANDBOX_INTEGRATION === "1") throw new Error(`Sandbox command timed out during integration stage ${integrationStage}.`);
+        throw new Error(`Sandbox command timed out after ${request.timeoutMs} milliseconds.`);
+      }
       if (request.signal?.aborted) throw new Error("Sandbox command was cancelled.");
       const policyDiagnostic = process.env.SANDBOX_INTEGRATION === "1" ? safeSandboxPolicyDiagnostic(error) : undefined;
       if (policyDiagnostic) throw new Error(`Sandbox command failed. ${policyDiagnostic}`);

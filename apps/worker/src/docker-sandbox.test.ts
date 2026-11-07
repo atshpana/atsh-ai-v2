@@ -84,6 +84,7 @@ test("constructs a non-root, networkless, read-only, resource-bounded container 
   assert.deepEqual(spec.Entrypoint, [...SANDBOX_ENTRYPOINT]);
   assert.match(spec.Entrypoint[2]!, /tar -x -f - -C \/workspace/);
   assert.match(spec.Entrypoint[2]!, /\.atsh-sandbox-result/);
+  assert.match(spec.Entrypoint[2]!, /exit 125/);
   assert.match(spec.Entrypoint[2]!, /sleep infinity/);
   assert.equal(spec.AttachStdin, true);
   assert.equal(spec.OpenStdin, true);
