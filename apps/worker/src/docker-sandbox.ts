@@ -5,7 +5,7 @@ import { performance } from "node:perf_hooks";
 import { request as httpsRequest } from "node:https";
 import type { IncomingMessage } from "node:http";
 import { assertSandboxCommandRequest, type SandboxBackend, type SandboxCapabilities, type SandboxCommandRequest, type SandboxCommandResult } from "./sandbox-contract.js";
-import { applyWorkspaceTar, createWorkspaceTar } from "./sandbox-archive.js";
+import { applyWorkspaceTar, createWorkspaceTar, safeSandboxArchiveDiagnostic } from "./sandbox-archive.js";
 
 const DOCKER_API_VERSION = "v1.45";
 const WORKSPACE_PATH = "/workspace";
@@ -644,6 +644,8 @@ export class DockerSandboxBackend implements SandboxBackend {
       if (error instanceof Error && /^Docker Engine request failed with HTTP \d{3} for (GET|POST|PUT|DELETE) \/v1\.45\//.test(error.message)) {
         throw new Error(`Sandbox command failed. ${error.message} Response details were suppressed.`);
       }
+      const archiveDiagnostic = process.env.SANDBOX_INTEGRATION === "1" ? safeSandboxArchiveDiagnostic(error) : undefined;
+      if (archiveDiagnostic) throw new Error(`Sandbox command failed. ${archiveDiagnostic}`);
       if (process.env.SANDBOX_INTEGRATION === "1") {
         throw new Error(`Sandbox command failed during integration stage ${integrationStage}.`);
       }

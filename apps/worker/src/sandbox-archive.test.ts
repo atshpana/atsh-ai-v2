@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { applyWorkspaceTar, createWorkspaceTar, parseWorkspaceTar } from "./sandbox-archive.js";
+import { applyWorkspaceTar, createWorkspaceTar, parseWorkspaceTar, safeSandboxArchiveDiagnostic } from "./sandbox-archive.js";
+
+test("only exposes fixed workspace archive errors as integration diagnostics", () => {
+  assert.equal(safeSandboxArchiveDiagnostic(new Error("Sandbox archive is truncated.")), "Sandbox archive is truncated.");
+  assert.equal(safeSandboxArchiveDiagnostic(new Error("EACCES: permission denied, open /private/path")), undefined);
+});
 
 test("workspace tar transfer preserves regular files and excludes secrets and repository metadata", async () => {
   const root = await mkdtemp(join(tmpdir(), "atsh-sandbox-archive-"));

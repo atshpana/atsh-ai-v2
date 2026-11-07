@@ -6,6 +6,41 @@ const BLOCK = 512;
 export const MAX_WORKSPACE_BYTES = 64 * 1024 * 1024;
 export const MAX_WORKSPACE_ENTRIES = 10_000;
 const RESERVED_SEGMENTS = new Set([".git", "node_modules"]);
+const SAFE_ARCHIVE_FAILURES = new Set([
+  "Sandbox archive contains an invalid relative path.",
+  "Sandbox archive contains a reserved or unsafe path.",
+  "Sandbox archive field is out of range.",
+  "Workspace path exceeds the supported tar path length.",
+  "Sandbox workspace must be a directory.",
+  "Workspace changed while it was being archived.",
+  "Workspace contains a symlink; refusing sandbox synchronization.",
+  "Workspace contains a special file; refusing sandbox synchronization.",
+  "Sandbox archive contains an invalid size or mode.",
+  "Sandbox archive contains an out-of-range field.",
+  "Sandbox archive has an invalid header checksum.",
+  "Sandbox archive entry exceeds its available data.",
+  "Sandbox output archive contains a link or special file.",
+  "Sandbox archive root entry is invalid.",
+  "Sandbox archive contains duplicate paths.",
+  "Sandbox output exceeds the 64 MB transfer limit.",
+  "Sandbox directory entry has unexpected content.",
+  "Sandbox output has too many entries.",
+  "Sandbox archive is truncated.",
+  "Sandbox archive has a file used as a parent directory.",
+  "Sandbox output path escaped the assigned workspace.",
+  "Workspace path contains a non-directory or symlink.",
+  "Workspace path contains a symlink.",
+  "Sandbox output archive exceeds the 64 MB transfer limit.",
+  "Sandbox output conflicts with a directory containing reserved files.",
+  "Workspace changed during sandbox synchronization.",
+  "Sandbox output conflicts with a non-directory path.",
+  "Sandbox output conflicts with a non-file path.",
+]);
+
+export function safeSandboxArchiveDiagnostic(error: unknown): string | undefined {
+  if (error instanceof Error && SAFE_ARCHIVE_FAILURES.has(error.message)) return error.message;
+  return undefined;
+}
 
 export type WorkspaceArchiveEntry = {
   path: string;
