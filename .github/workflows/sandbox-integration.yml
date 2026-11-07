@@ -101,16 +101,24 @@ jobs:
           sleep 1
       - name: Run worker sandbox integration acceptance
         run: |
-          set -o pipefail
+          set +e
           npm test --workspace @atsh/worker 2>&1 | tee "$RUNNER_TEMP/atsh-sandbox-test.log"
+          test_status=${PIPESTATUS[0]}
+          if [ "$test_status" -ne 0 ]; then
+            test_logs=$(tail -n 80 "$RUNNER_TEMP/atsh-sandbox-test.log" 2>/dev/null | tr '\n' ' ' || true)
+            test_logs=${test_logs//%/%25}
+            test_logs=${test_logs//$'\r'/%0D}
+            test_logs=${test_logs//::/%3A%3A}
+            if [ -n "$test_logs" ]; then
+              echo "::error title=Sandbox acceptance failure output::${test_logs: -2500}"
+            else
+              echo "::error title=Sandbox acceptance failure output::No test output was captured; inspect the workflow step log."
+            fi
+          fi
+          exit "$test_status"
       - name: Show isolated daemon logs on failure
         if: failure()
         run: |
-          test_logs=$(tail -n 80 "$RUNNER_TEMP/atsh-sandbox-test.log" 2>/dev/null | tr '\n' ' ' || true)
-          test_logs=${test_logs//%/%25}
-          test_logs=${test_logs//$'\r'/%0D}
-          test_logs=${test_logs//::/%3A%3A}
-          echo "::error title=Sandbox acceptance failure output::${test_logs: -2500}"
           daemon_logs=$(env -u DOCKER_HOST docker logs atsh-sandbox-dind 2>&1 | tail -n 100 | tr '\n' ' ' || true)
           daemon_logs=${daemon_logs//%/%25}
           daemon_logs=${daemon_logs//$'\r'/%0D}
