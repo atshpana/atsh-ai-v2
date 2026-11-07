@@ -20,6 +20,8 @@
 - [x] ENG-02 Worker workspace-write integration — PR #30 merged; commit `78a2fd5ce6745e816668d7858bd8d984e3ee78a7`. CI, CodeQL, Dependency Review succeeded for that PR head.
 
 ## Active task
+- [ ] **GATE-01 — Complete Phase 0/1 evidence and review:** verify current backup integrity and restore test, sanitized staging, Coolify services, Worker/n8n runtime, database inventory/ownership/permissions, GitHub rules/CI, secret presence/scope without disclosure, network isolation and approvals schema. Phase 1 remains INCOMPLETE — NOT READY; no build/runtime/database work until review and approval.
+
 - [ ] **ENG-03 — Real fail-closed build sandbox**
   - PR #32 was merged into implementation/bootstrap at `ebeabf4de468783d0cc7fc68b0738abc17d4054b` after CI run `42336071140` passed typecheck, build, and unit tests; CodeQL and Dependency Review also passed.
   - The merged code defines a sandbox contract/policy adapter only; it is not a concrete runtime.
@@ -36,7 +38,7 @@
   - No build or architectural implementation before the report is reviewed and approved, as required by architecture v1.1.
 
 ## Following tasks — ordered around the HAI build
-- [ ] **ENG-04 — HAI specification intake and traceability:** immutable source file/version/hash; extraction of modules/screens/flows/roles/rules/data/integrations/acceptance criteria; unresolved-question register; requirement-to-code/test traceability.
+- [x] **ENG-04 — HAI requirement traceability baseline (documentation extraction):** `docs/HAI-REQUIREMENT-TRACEABILITY-BASELINE.md` records source hierarchy, PUB/ADM/API/role/lifecycle/product-module/production-line requirement families and current evidence status. This is not automated immutable intake or complete implementation traceability; those remain open.
 - [ ] **ENG-05 — Existing server database discovery and safe integration plan:** read-only metadata inventory; database/schema/table/relationship map; identify ownership and interfaces; map HAI entities to existing structures; propose API/view/least-privilege access; migration and rollback plans; no production writes until approved.
 - [ ] **ENG-06 — Durable task decomposition and dispatch:** parent/child tasks, dependencies, concurrency caps, leases, retries, cancellation, and result aggregation in `agent-db`.
 - [ ] **ENG-07 — GitHub implementation lifecycle:** restricted credentials; create feature branches, commit changes, open draft PRs; no merge permission.
