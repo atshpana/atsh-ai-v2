@@ -8,7 +8,8 @@
 **Gap matrix:** `docs/HAI-PRODUCTION-LINE-GAP-MATRIX.md`  
 **Phase 1 evidence:** `docs/PHASE-1-ENVIRONMENT-EVIDENCE.md` (partial; not a readiness approval)  
 **Product audit:** `docs/HAI-APPLICATION-CONFORMANCE-AUDIT.md` (repository-source audit; not live deployment acceptance)  
-**HAI requirement baseline:** `docs/HAI-REQUIREMENT-TRACEABILITY-BASELINE.md` (source-derived requirement IDs, scope, evidence status and acceptance gates)
+**HAI requirement baseline:** `docs/HAI-REQUIREMENT-TRACEABILITY-BASELINE.md` (source-derived requirement IDs, scope, evidence status and acceptance gates)  
+**Code/test evidence map:** `docs/HAI-CODE-TEST-EVIDENCE-MAP.md` (requirement families mapped to audited source paths and focused test evidence)
 
 ## Mission
 Build a controlled software production line that receives the approved HAI master file, extracts and traces its requirements, builds the ATSH AI platform, discovers and safely integrates with approved existing server databases/services, tests the result, produces a preview, processes revisions, and prepares a gated release/deployment. The resulting ATSH AI platform — not the production-line engine — receives and manages customer requests after approved deployment.
@@ -71,3 +72,7 @@ No production database, schema, service, secret, merge to `main`, or deployment 
 - PR #34 head `8d489139ccb913bc8052e43d2d18b1d25b0b7a5a`: CI run `42337871439` — **success**; validation job passed all steps, including schema validation, client generation, non-applied migration preview, typecheck, build and unit tests.
 - PR #33 head `2ec0b9bc7300f2157d3471149845b6b573de897b`: CI, CodeQL and Dependency Review — **success**.
 - PR #33 and PR #34 remain open and unmerged. No merge authorization is inferred from passing checks.
+
+
+## Source-to-test evidence mapping
+Added `docs/HAI-CODE-TEST-EVIDENCE-MAP.md` at commit `1d93867641a38e6f29e3ad5ebc5788489f35b574`. It maps production-line and product requirement families to concrete source paths and available focused tests at audited revision `ebeabf4de468783d0cc7fc68b0738abc17d4054b`. It explicitly distinguishes UI scaffolds, schema foundations, unit-tested primitives, missing end-to-end workflows and unverified live runtime facts. This does not close HAI requirements or satisfy GATE-01.
