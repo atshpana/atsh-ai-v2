@@ -44,8 +44,8 @@ function safeInspect() {
       Memory: 512 * 1024 * 1024,
       MemorySwap: 512 * 1024 * 1024,
       PidsLimit: 128,
-      PidMode: "private",
-      UTSMode: "private",
+      PidMode: "",
+      UTSMode: "",
       CgroupnsMode: "private",
       CapDrop: ["ALL"],
       CapAdd: [],
@@ -142,5 +142,13 @@ test("refuses an inspected container whose effective security settings differ fr
     ...safeInspect(),
     HostConfig: { ...safeInspect().HostConfig, Tmpfs: { ...safeInspect().HostConfig.Tmpfs, "/root": "rw,size=1024" } },
   }, request.maxOutputBytes), /workspace or temporary storage/);
+  assert.throws(() => assertCreatedContainerSecurity({
+    ...safeInspect(),
+    HostConfig: { ...safeInspect().HostConfig, PidMode: "host" },
+  }, request.maxOutputBytes), /private process/);
+  assert.throws(() => assertCreatedContainerSecurity({
+    ...safeInspect(),
+    HostConfig: { ...safeInspect().HostConfig, UTSMode: "host" },
+  }, request.maxOutputBytes), /private process/);
   assert.throws(() => assertCreatedContainerSecurity(safeInspect(), request.maxOutputBytes, ["sh", "-c", "unsafe"]), /requested direct command/);
 });

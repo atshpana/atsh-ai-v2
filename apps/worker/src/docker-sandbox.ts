@@ -248,8 +248,6 @@ export function buildDockerContainerSpec(
       Memory: MEMORY_BYTES,
       MemorySwap: MEMORY_BYTES,
       PidsLimit: MAX_PIDS,
-      PidMode: "private",
-      UTSMode: "private",
       CgroupnsMode: "private",
       CapDrop: ["ALL"],
       CapAdd: [],
@@ -310,7 +308,8 @@ export function assertCreatedContainerSecurity(inspect: {
   if (host.NanoCpus !== CPU_NANO_CPUS || host.Memory !== MEMORY_BYTES || host.MemorySwap !== MEMORY_BYTES || host.PidsLimit !== MAX_PIDS) {
     throw new Error("Sandbox container resource limits do not match the approved bounds.");
   }
-  if (host.PidMode !== "private" || host.UTSMode !== "private" || host.CgroupnsMode !== "private") {
+  if ((host.PidMode !== undefined && host.PidMode !== "") ||
+      (host.UTSMode !== undefined && host.UTSMode !== "") || host.CgroupnsMode !== "private") {
     throw new Error("Sandbox container did not preserve private process, UTS, and cgroup namespaces.");
   }
   if (host.CapDrop?.length !== 1 || host.CapDrop[0] !== "ALL" || (host.CapAdd?.length ?? 0) !== 0 ||
