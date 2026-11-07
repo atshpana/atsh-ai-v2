@@ -107,6 +107,38 @@ test("workspace result synchronization applies file changes, deletions, and file
   }
 });
 
+test("reads internal sandbox completion metadata but never synchronizes it to the host workspace", async () => {
+  const root = await mkdtemp(join(tmpdir(), "atsh-sandbox-result-marker-"));
+  const workspace = join(root, "workspace");
+  const output = join(root, "output");
+  const markerPath = ".atsh-sandbox-result";
+  try {
+    await mkdir(workspace);
+    await mkdir(output);
+    await writeFile(join(output, "a-status-marker"), "0\n");
+    await writeFile(join(output, "result.json"), "{\"ready\":true}\n");
+    const archive = await createWorkspaceTar(output);
+    archive.fill(0, 0, 100);
+    archive.write(markerPath, 0, 100, "utf8");
+    archive.fill(0x20, 148, 156);
+    let checksum = 0;
+    for (let index = 0; index < 512; index += 1) checksum += archive[index]!;
+    archive.write(checksum.toString(8).padStart(6, "0"), 148, 6, "ascii");
+    archive[154] = 0;
+    archive[155] = 0x20;
+
+    assert.throws(() => parseWorkspaceTar(archive), /reserved or unsafe path/);
+    const allowedMetadata = new Set([markerPath]);
+    const parsed = parseWorkspaceTar(archive, allowedMetadata);
+    assert.equal(parsed.find((entry) => entry.path === markerPath)?.data?.toString("ascii"), "0\n");
+    await applyWorkspaceTar(workspace, archive, allowedMetadata);
+    assert.equal(await readFile(join(workspace, "result.json"), "utf8"), "{\"ready\":true}\n");
+    await assert.rejects(readFile(join(workspace, markerPath)));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("workspace tar transfer rejects symlinks", async () => {
   const root = await mkdtemp(join(tmpdir(), "atsh-sandbox-link-"));
   const workspace = join(root, "workspace");

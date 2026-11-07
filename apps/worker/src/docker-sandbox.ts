@@ -5,11 +5,11 @@ import { performance } from "node:perf_hooks";
 import { request as httpsRequest } from "node:https";
 import type { IncomingMessage } from "node:http";
 import { assertSandboxCommandRequest, type SandboxBackend, type SandboxCapabilities, type SandboxCommandRequest, type SandboxCommandResult } from "./sandbox-contract.js";
-import { applyWorkspaceTar, createWorkspaceTar, safeSandboxArchiveDiagnostic } from "./sandbox-archive.js";
+import { applyWorkspaceTar, createWorkspaceTar, parseWorkspaceTar, safeSandboxArchiveDiagnostic } from "./sandbox-archive.js";
 
 const DOCKER_API_VERSION = "v1.45";
 const WORKSPACE_PATH = "/workspace";
-const TIMEOUT_GRACE_MS = 5_000;
+const SANDBOX_RESULT_PATH = ".atsh-sandbox-result";
 const REQUEST_TIMEOUT_MS = 15_000;
 const MEMORY_BYTES = 512 * 1024 * 1024;
 const WORKSPACE_TMPFS_BYTES = 256 * 1024 * 1024;
@@ -19,7 +19,7 @@ const CPU_NANO_CPUS = 1_000_000_000;
 export const SANDBOX_ENTRYPOINT = [
   "/bin/sh",
   "-c",
-  "tar -x -f - -C /workspace --no-same-owner && exec \"$@\"",
+  "tar -x -f - -C /workspace --no-same-owner || exit $?; rm -rf /workspace/.atsh-sandbox-result /workspace/.atsh-sandbox-result.tmp; \"$@\"; result=$?; printf '%s\\n' \"$result\" > /workspace/.atsh-sandbox-result.tmp; mv /workspace/.atsh-sandbox-result.tmp /workspace/.atsh-sandbox-result; exec sleep infinity",
   "atsh-sandbox-init",
 ] as const;
 const SAFE_ENV_NAMES = new Set(["CI", "LANG", "NODE_ENV", "TZ"]);
@@ -155,7 +155,9 @@ function summarizeMountPolicy(mounts: unknown): string {
 function errorMessage(statusCode: number, method: string, path: string, body: Buffer): Error {
   const route = path.split("?", 1)[0]!.replace(/\/containers\/[a-f0-9-]{12,64}(?=\/|$)/gi, "/containers/:id");
   const diagnostic = process.env.SANDBOX_INTEGRATION === "1" ? safeDockerDiagnostic(body) : undefined;
-  return new Error(`Docker Engine request failed with HTTP ${statusCode} for ${method} ${route}.${diagnostic ? ` ${diagnostic}` : ""}`);
+  const error = new Error(`Docker Engine request failed with HTTP ${statusCode} for ${method} ${route}.${diagnostic ? ` ${diagnostic}` : ""}`) as Error & { statusCode: number };
+  error.statusCode = statusCode;
+  return error;
 }
 
 export class DockerEngineClient {
@@ -296,6 +298,40 @@ function parseJson<T>(response: DockerResponse): T {
   } catch {
     throw new Error("Docker Engine returned an invalid JSON response.");
   }
+}
+
+function dockerStatusCode(error: unknown): number | undefined {
+  if (error instanceof Error && "statusCode" in error && typeof error.statusCode === "number") return error.statusCode;
+  return undefined;
+}
+
+async function waitForSandboxExitCode(client: DockerEngineClient, containerId: string, signal: AbortSignal): Promise<number> {
+  const markerSet = new Set([SANDBOX_RESULT_PATH]);
+  const markerPath = `/${DOCKER_API_VERSION}/containers/${containerId}/archive?path=%2Fworkspace%2F${encodeURIComponent(SANDBOX_RESULT_PATH)}`;
+  const inspectPath = `/${DOCKER_API_VERSION}/containers/${containerId}/json`;
+  let lastStateCheck = Number.NEGATIVE_INFINITY;
+  while (!signal.aborted) {
+    try {
+      const response = await client.request(markerPath, "GET", undefined, signal, 1024 * 1024, "application/json", 1_000);
+      const marker = parseWorkspaceTar(response.body, markerSet).find((entry) => entry.path === SANDBOX_RESULT_PATH && entry.kind === "file");
+      const rawExitCode = marker?.data?.toString("ascii").trim();
+      if (!rawExitCode || !/^(?:0|[1-9][0-9]{0,2})$/.test(rawExitCode)) {
+        throw new Error("Sandbox completion marker contains an invalid exit code.");
+      }
+      const exitCode = Number(rawExitCode);
+      if (exitCode > 255) throw new Error("Sandbox completion marker contains an invalid exit code.");
+      return exitCode;
+    } catch (error) {
+      if (dockerStatusCode(error) !== 404) throw error;
+      if (performance.now() - lastStateCheck >= 1_000) {
+        lastStateCheck = performance.now();
+        const inspect = parseJson<{ State?: { Running?: boolean } }>(await client.request(inspectPath, "GET", undefined, signal, 1_000_000));
+        if (inspect.State?.Running === false) throw new Error("Sandbox container exited before publishing its result.");
+      }
+      await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+    }
+  }
+  throw new Error("Sandbox command was cancelled.");
 }
 
 export function assertDockerDaemonIdentity(info: DockerInfo, expectedDaemonId: string): void {
@@ -566,7 +602,7 @@ export class DockerSandboxBackend implements SandboxBackend {
     const operationSignal = AbortSignal.any(signals);
     let timedOut = false;
     const startedAt = performance.now();
-    let integrationStage: "container-create" | "policy-inspection" | "container-start" | "workspace-input" | "command-wait" | "command-logs" | "workspace-output" | "workspace-apply" = "container-create";
+    let integrationStage: "container-create" | "policy-inspection" | "container-start" | "workspace-input" | "command-completion" | "command-logs" | "workspace-output" | "workspace-apply" = "container-create";
     const timer = setTimeout(() => {
       timedOut = true;
       controller.abort();
@@ -595,21 +631,9 @@ export class DockerSandboxBackend implements SandboxBackend {
       await this.client.request(`/${DOCKER_API_VERSION}/containers/${containerId}/start`, "POST", undefined, operationSignal, 1_000_000);
       integrationStage = "workspace-input";
       await this.client.sendWorkspaceArchive(containerId, workspaceTar, operationSignal);
-      integrationStage = "command-wait";
-      const wait = await this.client.request(
-        `/${DOCKER_API_VERSION}/containers/${containerId}/wait?condition=not-running`,
-        "POST",
-        undefined,
-        operationSignal,
-        1_000_000,
-        "application/json",
-        request.timeoutMs + TIMEOUT_GRACE_MS,
-      );
-      const waitResult = parseJson<{ StatusCode?: number }>(wait);
-      const exitCode = waitResult.StatusCode;
-      if (typeof exitCode !== "number" || !Number.isInteger(exitCode)) {
-        throw new Error("Docker Engine did not return a sandbox exit status.");
-      }
+      integrationStage = "command-completion";
+      const exitCode = await waitForSandboxExitCode(this.client, containerId, operationSignal);
+      await this.client.request(`/${DOCKER_API_VERSION}/containers/${containerId}/pause`, "POST", undefined, operationSignal, 1_000_000);
 
       integrationStage = "command-logs";
       const logResponse = await this.client.request(
@@ -629,7 +653,7 @@ export class DockerSandboxBackend implements SandboxBackend {
         operationSignal,
       );
       integrationStage = "workspace-apply";
-      await applyWorkspaceTar(workspace, archiveResponse.body);
+      await applyWorkspaceTar(workspace, archiveResponse.body, new Set([SANDBOX_RESULT_PATH]));
       return {
         exitCode,
         stdout: logs.stdout,

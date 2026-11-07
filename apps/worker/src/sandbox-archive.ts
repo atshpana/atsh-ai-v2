@@ -5,7 +5,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 const BLOCK = 512;
 export const MAX_WORKSPACE_BYTES = 64 * 1024 * 1024;
 export const MAX_WORKSPACE_ENTRIES = 10_000;
-const RESERVED_SEGMENTS = new Set([".git", "node_modules"]);
+const RESERVED_SEGMENTS = new Set([".git", "node_modules", ".atsh-sandbox-result", ".atsh-sandbox-result.tmp"]);
 const SAFE_ARCHIVE_FAILURES = new Set([
   "Sandbox archive contains an invalid relative path.",
   "Sandbox archive contains an empty entry path.",
@@ -57,13 +57,14 @@ function isReservedSegment(segment: string): boolean {
   return RESERVED_SEGMENTS.has(segment) || /^\.env(?:\.|$)/i.test(segment);
 }
 
-function assertRelativePath(path: string): string {
+function assertRelativePath(path: string, allowedReservedPaths: ReadonlySet<string> = new Set()): string {
   if (!path || path.includes("\\") || path.includes("\0") || path.startsWith("/")) {
     throw new Error("Sandbox archive contains an invalid relative path.");
   }
   const segments = path.replace(/\/$/, "").split("/");
   if (segments.length === 1 && segments[0] === ".") return ".";
-  if (segments.some((segment) => !segment || segment === "." || segment === ".." || isReservedSegment(segment))) {
+  if (segments.some((segment) => !segment || segment === "." || segment === ".." ||
+      (isReservedSegment(segment) && !allowedReservedPaths.has(path)))) {
     throw new Error("Sandbox archive contains a reserved or unsafe path.");
   }
   return segments.join("/");
@@ -187,7 +188,7 @@ function verifyTarChecksum(header: Buffer): void {
   if (actual !== expected) throw new Error("Sandbox archive has an invalid header checksum.");
 }
 
-function normalizeContainerArchivePath(name: string): string {
+function normalizeContainerArchivePath(name: string, allowedReservedPaths: ReadonlySet<string>): string {
   let normalized = name;
   if (!normalized) throw new Error("Sandbox archive contains an empty entry path.");
   if (normalized.includes("\\")) throw new Error("Sandbox archive contains a backslash in an entry path.");
@@ -201,10 +202,10 @@ function normalizeContainerArchivePath(name: string): string {
   else if (normalized.startsWith("workspace/")) normalized = normalized.slice("workspace/".length);
   if (!normalized) throw new Error("Sandbox archive contains an empty entry path.");
   if (normalized.startsWith("/")) throw new Error("Sandbox archive contains a repeated separator after its root.");
-  return assertRelativePath(normalized);
+  return assertRelativePath(normalized, allowedReservedPaths);
 }
 
-export function parseWorkspaceTar(archive: Buffer): WorkspaceArchiveEntry[] {
+export function parseWorkspaceTar(archive: Buffer, allowedReservedPaths: ReadonlySet<string> = new Set()): WorkspaceArchiveEntry[] {
   if (archive.byteLength > MAX_WORKSPACE_BYTES + MAX_WORKSPACE_ENTRIES * BLOCK + BLOCK * 2) {
     throw new Error("Sandbox output archive exceeds the 64 MB transfer limit.");
   }
@@ -226,7 +227,7 @@ export function parseWorkspaceTar(archive: Buffer): WorkspaceArchiveEntry[] {
     if (size > MAX_WORKSPACE_BYTES || offset + size > archive.byteLength) throw new Error("Sandbox archive entry exceeds its available data.");
     const kind = typeFlag === 0 || typeFlag === 0x30 ? "file" : typeFlag === 0x35 ? "directory" : null;
     if (!kind) throw new Error("Sandbox output archive contains a link or special file.");
-    const path = normalizeContainerArchivePath(rawPath);
+    const path = normalizeContainerArchivePath(rawPath, allowedReservedPaths);
     if (path === ".") {
       if (kind !== "directory" || size !== 0) throw new Error("Sandbox archive root entry is invalid.");
     } else {
@@ -315,10 +316,14 @@ async function collectExistingTree(root: string): Promise<{ files: Set<string>; 
   return { files, directories, reservedAncestors };
 }
 
-export async function applyWorkspaceTar(workspace: string, archive: Buffer): Promise<void> {
+export async function applyWorkspaceTar(
+  workspace: string,
+  archive: Buffer,
+  excludedPaths: ReadonlySet<string> = new Set(),
+): Promise<void> {
   const root = await realpath(workspace);
   if (!(await stat(root)).isDirectory()) throw new Error("Sandbox workspace must be a directory.");
-  const entries = parseWorkspaceTar(archive);
+  const entries = parseWorkspaceTar(archive, excludedPaths).filter((entry) => !excludedPaths.has(entry.path));
   const existing = await collectExistingTree(root);
   const incomingFiles = new Set(entries.filter((entry) => entry.kind === "file").map((entry) => entry.path));
   const incomingDirectories = new Set(entries.filter((entry) => entry.kind === "directory").map((entry) => entry.path));
