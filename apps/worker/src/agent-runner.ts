@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { appendToolOutput, parseCheckpoint, rememberFile, serializeCheckpoint, type AgentCheckpoint } from "./checkpoint-state.js";
 import { Pool, type PoolClient } from "pg";
 import { planTools, type CostClass, type ProjectBrief, type ProjectKind } from "./tool-orchestrator.js";
 
@@ -183,7 +184,7 @@ async function claimJob(): Promise<Job | null> {
         WHERE id = $1`,
       [job.id, workerId, leaseMs],
     );
-    await event(client, job.id, "job.claimed", { workerId, attempt: job.attempts + 1 });
+    await event(client, job.id, "job.claimed", { workerId, failureAttempts: job.attempts });
     await client.query("COMMIT");
     return job;
   } catch (error) {
@@ -267,19 +268,6 @@ async function persistToolPlan(job: Job, brief: ProjectBrief, plan: ReturnType<t
 }
 
 
-type AgentCheckpoint = { version: 1; history: Array<Record<string, unknown>>; files: Record<string, string> };
-
-function parseCheckpoint(raw: string): AgentCheckpoint {
-  if (!raw) return { version: 1, history: [], files: {} };
-  try {
-    const value = JSON.parse(raw) as Partial<AgentCheckpoint>;
-    if (value.version === 1 && Array.isArray(value.history) && value.files && typeof value.files === "object") {
-      return { version: 1, history: value.history, files: value.files };
-    }
-  } catch { /* Legacy text checkpoint. */ }
-  return { version: 1, history: [{ role: "user", content: "Legacy checkpoint: " + raw }], files: {} };
-}
-
 async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Promise<Decision> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey || !model) throw new Error("OpenAI API key and model are required.");
@@ -319,7 +307,7 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
       if (Object.prototype.hasOwnProperty.call(state.files, path)) result = { path, cached: true, content: state.files[path] };
       else {
         const content = await githubContents(path);
-        state.files[path] = content;
+        rememberFile(state, path, content);
         result = { path, cached: false, content };
       }
     } else if (call.name === "record_progress" && typeof args.note === "string") {
@@ -338,10 +326,10 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
       const saved = await persistToolPlan(job, brief, plan);
       result = { plan, persistedPlan: saved };
     } else throw new Error("Unsupported or invalid model tool call: " + call.name);
-    state.history.push({ type: "function_call_output", call_id: call.call_id, output: JSON.stringify(result) });
+    appendToolOutput(state, call.call_id, result);
   }
   if (decision) return decision;
-  return { kind: "continue", note: JSON.stringify(state), responseId: payload.id ?? null };
+  return { kind: "continue", note: serializeCheckpoint(state), responseId: payload.id ?? null };
 }
 
 async function saveCheckpoint(jobId: string, responseId: string | null, note: string) {
@@ -416,7 +404,7 @@ async function requeue(job: Job, reason: string) {
 }
 
 async function processJob(job: Job) {
-  log("info", "job.started", { jobId: job.id, attempt: job.attempts, maxAttempts: job.max_attempts });
+  log("info", "job.started", { jobId: job.id, failureAttempts: job.attempts, maxFailureAttempts: job.max_attempts });
   let checkpoint = "";
   const current = await pool.query<{ checkpoint: string | null }>(
     "SELECT checkpoint FROM agent_jobs WHERE id = $1",
