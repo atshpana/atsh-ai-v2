@@ -1,3 +1,7 @@
+> **Governance correction — 2026-11-07:** This file is a historical record of an earlier greenfield assumption and is not an execution authority. Its statements excluding inspection/connection of the existing ATSH database and claiming an owner-approved reset conflict with the approved fixed executive reference v2.0, HAI master, and production-line architecture v1.1. Do not use those statements to discard, replace, recreate, or ignore existing ATSH data or services. The governing requirement is to inspect the current environment read-only, preserve existing structures until their role is understood, and prepare a reviewed safe integration plan. No database action is authorized by this notice. See `docs/HAI-APPLICATION-CONFORMANCE-AUDIT.md`.
+
+---
+
 # Phase 0 — Greenfield Foundation
 
 ## Purpose
