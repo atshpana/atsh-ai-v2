@@ -3,14 +3,21 @@
 ## Current status — 2026-11-07
 
 **Repository:** `atshpana/atsh-ai-v2`  
-**Review branch:** `docs/production-line-mission-v2`  
-**Governing target:** `docs/ENGINE-EXECUTION-BASELINE.md`
+**Assessment branch:** `docs/hai-gap-matrix-v1`  
+**Mission baseline:** `docs/ENGINE-EXECUTION-BASELINE.md`  
+**Gap matrix:** `docs/HAI-PRODUCTION-LINE-GAP-MATRIX.md`
 
 ## Mission
-Build a controlled software production line that receives the HAI master file, builds the ATSH AI platform from it, discovers and safely integrates with approved databases/services already on the designated server, tests the result, produces a preview, processes revisions, and prepares a gated release/deployment. The resulting ATSH AI platform — not the production-line engine — will receive and manage customer requests after approved deployment.
+Build a controlled software production line that receives the approved HAI master file, extracts and traces its requirements, builds the ATSH AI platform, discovers and safely integrates with approved existing server databases/services, tests the result, produces a preview, processes revisions, and prepares a gated release/deployment. The resulting ATSH AI platform — not the production-line engine — receives and manages customer requests after approved deployment.
 
 ## Owner-confirmed prerequisites
-The owner confirms Coolify, GitHub repository/branches/permissions, existing server database/backup preparation, and the existing OpenAI key preparation are complete. This is owner-confirmed status, not a fresh independent runtime test. Do not repeat broad readiness checks.
+The owner confirms Coolify, GitHub repository/branches/permissions, existing server database/backup preparation, and the existing OpenAI key preparation are complete. This remains owner-confirmed preparation, not fresh independent evidence of live service state, backup restore, network isolation, or secret scope. Broad readiness checks will not be repeated; only missing evidence will be requested.
+
+## Completed assessment
+- GAP-01: reviewed the HAI master (v1.0), architecture v1.1 and repository evidence.
+- Added `docs/HAI-PRODUCTION-LINE-GAP-MATRIX.md`.
+- Updated `TASKS.md` with the assessment result, explicit Phase 0/1 gate, and separate product-conformance audit.
+- The assessment distinguishes production-line capability from ATSH AI application completeness. The repository contains public-web, admin, API and customer-portal workspaces and product documentation; their complete conformance to HAI has not yet been established.
 
 ## Verified implementation foundation
 - PR #28: repository governance baseline.
@@ -19,24 +26,33 @@ The owner confirms Coolify, GitHub repository/branches/permissions, existing ser
 - PR #30: worker tool-loop integration for `workspace_write_file`.
 - PR #30 CI, CodeQL, Dependency Review: success for that PR head.
 - Worker queue/lease/retry/event/checkpoint foundation and read-only GitHub inspection retained.
+- PR #32: fail-closed sandbox contract proposal only; no concrete runtime backend.
 
 ## Current technical boundary
 The worker can create new files in a per-job workspace. It does not yet have a proven isolated command/build/test runtime. Running generated/customer-controlled scripts with only `cwd=workspace`, an allowlist, timeout, or environment filtering is not OS isolation and is prohibited.
 
-PR #32 currently represents a sandbox contract/policy layer, not a concrete container/microVM backend. Its CI must be diagnosed and pass before the contract change is accepted; a passing contract still does not prove real sandbox execution.
+PR #32 CI run `42335451638` failed at TypeScript typecheck with TS2532 in `sandbox-contract.ts`. The exact unsafe array access was guarded in commit `9a15f41e43edd4d6b30074d495d9eb66bb9b981b`. The new commit's CI result has not yet been observed; do not mark the contract accepted until checks rerun successfully. Even green contract tests do not prove a real sandbox backend.
+
+## Mandatory environment gate
+Architecture v1.1 requires Phase 0 protection and a documented Phase 1 environment report before build or architectural implementation. The owner-confirmed preparation is retained; independent evidence still needs to cover backup/restore, sanitized staging, live Coolify services, Worker/n8n, actual DB metadata/ownership, GitHub protections/Actions, secret presence/scope without exposing values, network isolation, and approvals schema status. No production writes are part of this inspection.
 
 ## HAI-to-ATSH AI lifecycle — not yet complete
-- HAI file intake/version/hash and requirement extraction/traceability: not implemented.
-- Existing server database metadata discovery and HAI-to-schema integration mapping: not implemented.
-- Real isolated build/test execution: not verified.
+- Immutable HAI intake/version/hash and automated requirement extraction/traceability: not implemented.
+- Existing server metadata discovery and HAI-to-live-schema mapping: not verified.
+- Real isolated build/test execution: blocked pending concrete backend.
 - Durable parent/child task graph and bounded dispatch: not verified.
-- GitHub branch/commit/PR write lifecycle: not verified.
+- GitHub branch/commit/PR write lifecycle from the engine: not verified.
 - Preview artifacts, revision management, and version-bound approval: not implemented end-to-end.
 - Controlled deployment and post-deploy verification: not implemented end-to-end.
 - ATSH AI platform operational handover/customer request intake: not yet delivered by this production line.
 
-## Immediate next action
-Review this proposed mission baseline against the HAI master reference, then perform a repository gap assessment requirement by requirement. Continue one scoped task at a time, starting with the concrete sandbox blocker and then HAI intake/database discovery in the order recorded in `TASKS.md`.
+## Next sequence
+1. Complete ENG-03 contract CI repair; then evaluate and validate a real sandbox backend.
+2. Complete Phase 0/1 evidence report before any build or architecture implementation.
+3. Implement immutable HAI intake/extraction and requirement traceability.
+4. Perform read-only live database discovery and safe integration mapping.
+5. Continue task graph, GitHub write lifecycle, spend controls, isolated tests, preview, revisions, approvals and release gates.
+6. Run a separate HAI-to-application conformance audit across every screen, flow, API, entity, permission, rule and test.
 
 ## Safety
-No production database, schema, service, secret, merge to `main`, or deployment was changed by this documentation update.
+No production database, schema, service, secret, merge to `main`, or deployment was changed by this assessment. PRs remain review-only.
