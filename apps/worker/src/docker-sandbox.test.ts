@@ -5,6 +5,7 @@ import {
   assertDockerDaemonIdentity,
   buildDockerContainerSpec,
   demultiplexDockerLogs,
+  extractDockerStdout,
   SANDBOX_ENTRYPOINT,
   safeDockerDiagnostic,
   safeSandboxPolicyDiagnostic,
@@ -36,7 +37,7 @@ function daemonInfo() {
 
 function safeInspect() {
   return {
-    Config: { User: "65532:65532", Tty: false, OpenStdin: true, StdinOnce: true, Entrypoint: [...SANDBOX_ENTRYPOINT], Cmd: request.command },
+    Config: { User: "65532:65532", Tty: false, OpenStdin: true, StdinOnce: true, Entrypoint: [...SANDBOX_ENTRYPOINT], Cmd: [] },
     HostConfig: {
       Privileged: false,
       ReadonlyRootfs: true,
@@ -58,7 +59,7 @@ function safeInspect() {
       DeviceRequests: [],
       PortBindings: {},
       Tmpfs: { "/workspace": "rw,size=268435456", "/tmp": "rw,size=67108864" },
-      LogConfig: { Type: "local", Config: { "max-size": "10k", "max-file": "1", compress: "false" } },
+      LogConfig: { Type: "none", Config: {} },
     },
     Mounts: [
       { Type: "tmpfs", Destination: "/workspace", RW: true },
@@ -79,17 +80,17 @@ test("requires a pinned dedicated rootless Linux sandbox daemon with limit suppo
 });
 
 test("constructs a non-root, networkless, read-only, resource-bounded container without host mounts", () => {
-  const spec = buildDockerContainerSpec(image, request, request.maxOutputBytes);
+  const spec = buildDockerContainerSpec(image, request);
   assert.equal(spec.User, "65532:65532");
   assert.deepEqual(spec.Entrypoint, [...SANDBOX_ENTRYPOINT]);
   assert.match(spec.Entrypoint[2]!, /tar -x -f - -C \/workspace/);
-  assert.match(spec.Entrypoint[2]!, /\.atsh-sandbox-result/);
-  assert.match(spec.Entrypoint[2]!, /exit 125/);
+  assert.match(spec.Entrypoint[2]!, /tar -x -f - -C \/workspace/);
   assert.match(spec.Entrypoint[2]!, /sleep infinity/);
+  assert.equal(spec.HostConfig.Tmpfs["/tmp"]?.includes("size=67108864"), true);
   assert.equal(spec.AttachStdin, true);
   assert.equal(spec.OpenStdin, true);
   assert.equal(spec.StdinOnce, true);
-  assert.deepEqual(spec.Cmd, request.command);
+  assert.deepEqual(spec.Cmd, []);
   assert.deepEqual(spec.Env, [
     "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
     "HOME=/tmp",
@@ -107,12 +108,11 @@ test("constructs a non-root, networkless, read-only, resource-bounded container 
   assert.deepEqual(spec.HostConfig.CapDrop, ["ALL"]);
   assert.deepEqual(spec.HostConfig.DeviceRequests, []);
   assert.deepEqual(spec.HostConfig.Binds, []);
-  assert.equal(spec.HostConfig.LogConfig.Config["max-size"], "10k");
-  assert.equal(spec.HostConfig.LogConfig.Config.compress, "false");
+  assert.deepEqual(spec.HostConfig.LogConfig, { Type: "none", Config: {} });
 });
 
 test("rejects mutable images and secret-like environment variables", () => {
-  assert.throws(() => buildDockerContainerSpec("node:22", request, 1000), /immutable sha256 digest/);
+  assert.throws(() => buildDockerContainerSpec("node:22", request), /immutable sha256 digest/);
   assert.throws(() => buildDockerContainerSpec(image, {
     ...request,
     environment: { OPENAI_API_KEY: "never-allowed" },
@@ -123,6 +123,21 @@ test("keeps decoded log output within the byte cap for multibyte UTF-8", () => {
   const frame = Buffer.from([1, 0, 0, 0, 0, 0, 0, 3, 0xe2, 0x82, 0xac]);
   const result = demultiplexDockerLogs(frame, 1);
   assert.equal(Buffer.byteLength(result.stdout) + Buffer.byteLength(result.stderr) <= 1, true);
+});
+
+test("extracts only bounded stdout data from Docker exec frames", () => {
+  const frame = (stream: 1 | 2, payload: Buffer) => {
+    const header = Buffer.alloc(8);
+    header[0] = stream;
+    header.writeUInt32BE(payload.byteLength, 4);
+    return Buffer.concat([header, payload]);
+  };
+  const archive = Buffer.from("tar bytes");
+  assert.deepEqual(extractDockerStdout(frame(1, archive)), archive);
+  assert.throws(() => extractDockerStdout(frame(2, Buffer.from("unexpected"))), /unexpected stderr/);
+  assert.throws(() => extractDockerStdout(frame(1, archive), 2), /configured size limit/);
+  assert.throws(() => extractDockerStdout(Buffer.from([3, 0, 0, 0, 0, 0, 0, 0])), /invalid Docker frame/);
+  assert.throws(() => extractDockerStdout(Buffer.from([1, 0, 0, 0, 0, 0, 0, 1])), /truncated Docker frame/);
 });
 
 test("sanitizes Docker diagnostics before opt-in integration logging", () => {
@@ -152,7 +167,7 @@ test("summarizes inspected mount mismatches without exposing source paths", () =
         { Type: "tmpfs", Destination: "/workspace", RW: true },
         { Type: "bind", Destination: "/private/host/source", RW: true },
       ],
-    }, request.maxOutputBytes, request.command);
+    });
   } catch (error) {
     failure = error;
   }
@@ -162,39 +177,46 @@ test("summarizes inspected mount mismatches without exposing source paths", () =
 });
 
 test("refuses an inspected container whose effective security settings differ from policy", () => {
-  assert.doesNotThrow(() => assertCreatedContainerSecurity(safeInspect(), request.maxOutputBytes, request.command));
-  assert.doesNotThrow(() => assertCreatedContainerSecurity({ ...safeInspect(), Mounts: [] }, request.maxOutputBytes, request.command));
+  assert.doesNotThrow(() => assertCreatedContainerSecurity(safeInspect()));
+  assert.doesNotThrow(() => assertCreatedContainerSecurity({ ...safeInspect(), Mounts: [] }));
   assert.throws(() => assertCreatedContainerSecurity({
     ...safeInspect(),
     HostConfig: { ...safeInspect().HostConfig, NetworkMode: "bridge" },
-  }, request.maxOutputBytes), /security mode/);
+  }), /security mode/);
   assert.throws(() => assertCreatedContainerSecurity({
     ...safeInspect(),
     HostConfig: { ...safeInspect().HostConfig, Binds: ["/:/host"] },
-  }, request.maxOutputBytes), /host path/);
+  }), /host path/);
   assert.throws(() => assertCreatedContainerSecurity({
     ...safeInspect(),
     Mounts: [{ Type: "bind", Destination: "/var/run/docker.sock" }],
-  }, request.maxOutputBytes), /unapproved writable mounts/);
+  }), /unapproved writable mounts/);
   assert.throws(() => assertCreatedContainerSecurity({
     ...safeInspect(),
     HostConfig: { ...safeInspect().HostConfig, Tmpfs: { ...safeInspect().HostConfig.Tmpfs, "/root": "rw,size=1024" } },
-  }, request.maxOutputBytes), /workspace or temporary storage/);
+  }), /workspace or temporary storage/);
   assert.throws(() => assertCreatedContainerSecurity({
     ...safeInspect(),
     HostConfig: { ...safeInspect().HostConfig, PidMode: "host" },
-  }, request.maxOutputBytes), /private process/);
+  }), /private process/);
   assert.throws(() => assertCreatedContainerSecurity({
     ...safeInspect(),
     HostConfig: { ...safeInspect().HostConfig, UTSMode: "host" },
-  }, request.maxOutputBytes), /private process/);
-  assert.throws(() => assertCreatedContainerSecurity(safeInspect(), request.maxOutputBytes, ["sh", "-c", "unsafe"]), /requested direct command/);
+  }), /private process/);
+  assert.throws(() => assertCreatedContainerSecurity({
+    ...safeInspect(),
+    HostConfig: { ...safeInspect().HostConfig, LogConfig: { Type: "local", Config: { "max-size": "10k" } } },
+  }), /output retention is not disabled/);
+  assert.throws(() => assertCreatedContainerSecurity({
+    ...safeInspect(),
+    Config: { ...safeInspect().Config, Cmd: ["sh", "-c", "unsafe"] },
+  }), /trusted bootstrap-only command/);
   assert.throws(() => assertCreatedContainerSecurity({
     ...safeInspect(),
     Config: { ...safeInspect().Config, Entrypoint: [] },
-  }, request.maxOutputBytes, request.command), /trusted bootstrap/);
+  }), /trusted bootstrap/);
   assert.throws(() => assertCreatedContainerSecurity({
     ...safeInspect(),
     Config: { ...safeInspect().Config, OpenStdin: false },
-  }, request.maxOutputBytes, request.command), /bounded input/);
+  }), /bounded input/);
 });

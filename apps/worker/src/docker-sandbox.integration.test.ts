@@ -106,7 +106,7 @@ test("real rootless Docker sandbox enforces isolation, limits, output bounds, an
       maxOutputBytes: 10_000,
     });
     await Promise.race([waitUntilRunning(timeoutJobId), timedCommand.then(() => { throw new Error("Timed sandbox process unexpectedly exited."); })]);
-    await assert.rejects(timedCommand, /timed out after 5000 milliseconds/);
+    await assert.rejects(timedCommand, /timed out during integration stage command-execution/);
 
     for (const expectedJobId of [cancelJobId, timeoutJobId]) {
       const filters = encodeURIComponent(JSON.stringify({ label: [`atsh.job.id=${expectedJobId}`] }));

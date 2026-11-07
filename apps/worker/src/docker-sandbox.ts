@@ -5,7 +5,7 @@ import { performance } from "node:perf_hooks";
 import { request as httpsRequest } from "node:https";
 import type { IncomingMessage } from "node:http";
 import { assertSandboxCommandRequest, type SandboxBackend, type SandboxCapabilities, type SandboxCommandRequest, type SandboxCommandResult } from "./sandbox-contract.js";
-import { applyWorkspaceTar, createWorkspaceTar, parseWorkspaceTar, safeSandboxArchiveDiagnostic } from "./sandbox-archive.js";
+import { applyWorkspaceTar, createWorkspaceTar, MAX_WORKSPACE_ARCHIVE_BYTES, safeSandboxArchiveDiagnostic } from "./sandbox-archive.js";
 
 const DOCKER_API_VERSION = "v1.45";
 const WORKSPACE_PATH = "/workspace";
@@ -19,20 +19,20 @@ const CPU_NANO_CPUS = 1_000_000_000;
 export const SANDBOX_ENTRYPOINT = [
   "/bin/sh",
   "-c",
-  "tar -x -f - -C /workspace --no-same-owner || exit $?; rm -rf /workspace/.atsh-sandbox-result /workspace/.atsh-sandbox-result.tmp || exit 125; \"$@\"; result=$?; printf '%s\\n' \"$result\" > /workspace/.atsh-sandbox-result.tmp || exit 125; mv /workspace/.atsh-sandbox-result.tmp /workspace/.atsh-sandbox-result || exit 125; exec sleep infinity",
+  "tar -x -f - -C /workspace --no-same-owner || exit $?; exec sleep infinity",
   "atsh-sandbox-init",
 ] as const;
 const SAFE_ENV_NAMES = new Set(["CI", "LANG", "NODE_ENV", "TZ"]);
 const SAFE_POLICY_FAILURES = new Set([
   "Sandbox container did not preserve the required non-root process and bounded input settings.",
-  "Sandbox container did not preserve the trusted bootstrap and requested direct command.",
+  "Sandbox container did not preserve the trusted bootstrap-only command.",
   "Sandbox container security mode does not match the approved isolated policy.",
   "Sandbox container resource limits do not match the approved bounds.",
   "Sandbox container did not preserve private process, UTS, and cgroup namespaces.",
   "Sandbox container did not drop capabilities or disable privilege escalation.",
   "Sandbox container requested a host path, device, or published port.",
   "Sandbox container is missing bounded workspace or temporary storage.",
-  "Sandbox container output logging is not bounded.",
+  "Sandbox container output retention is not disabled.",
   "Sandbox container contains missing or unapproved writable mounts.",
   "Sandbox container contains an unapproved mount.",
 ]);
@@ -40,6 +40,28 @@ const IMAGE_DIGEST = /^(?:[A-Za-z0-9._:/-]+@)?sha256:[a-f0-9]{64}$/i;
 const DAEMON_ID = /^(?:[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}|[a-z0-9]{4}(?::[a-z0-9]{4}){11}|[a-f0-9]{64})$/i;
 
 type DockerResponse = { statusCode: number; headers: IncomingMessage["headers"]; body: Buffer };
+
+export function extractDockerStdout(buffer: Buffer, maxBytes = MAX_WORKSPACE_ARCHIVE_BYTES): Buffer {
+  const stdout: Buffer[] = [];
+  let totalBytes = 0;
+  let offset = 0;
+  while (offset < buffer.byteLength) {
+    if (offset + 8 > buffer.byteLength) throw new Error("Sandbox output stream has a truncated Docker frame.");
+    const stream = buffer[offset]!;
+    if ((stream !== 1 && stream !== 2) || buffer[offset + 1] !== 0 || buffer[offset + 2] !== 0 || buffer[offset + 3] !== 0) {
+      throw new Error("Sandbox output stream has an invalid Docker frame.");
+    }
+    const size = buffer.readUInt32BE(offset + 4);
+    offset += 8;
+    if (offset + size > buffer.byteLength) throw new Error("Sandbox output stream has a truncated Docker frame.");
+    if (stream !== 1 && size > 0) throw new Error("Sandbox archive exporter wrote unexpected stderr output.");
+    totalBytes += size;
+    if (totalBytes > maxBytes) throw new Error("Sandbox output archive exceeds the configured size limit.");
+    if (size > 0) stdout.push(buffer.subarray(offset, offset + size));
+    offset += size;
+  }
+  return Buffer.concat(stdout, totalBytes);
+}
 
 export type DockerContainerSpec = {
   Image: string;
@@ -153,7 +175,9 @@ function summarizeMountPolicy(mounts: unknown): string {
 }
 
 function errorMessage(statusCode: number, method: string, path: string, body: Buffer): Error {
-  const route = path.split("?", 1)[0]!.replace(/\/containers\/[a-f0-9-]{12,64}(?=\/|$)/gi, "/containers/:id");
+  const route = path.split("?", 1)[0]!
+    .replace(/\/containers\/[a-f0-9-]{12,64}(?=\/|$)/gi, "/containers/:id")
+    .replace(/\/exec\/[a-f0-9-]{12,64}(?=\/|$)/gi, "/exec/:id");
   const diagnostic = process.env.SANDBOX_INTEGRATION === "1" ? safeDockerDiagnostic(body) : undefined;
   const error = new Error(`Docker Engine request failed with HTTP ${statusCode} for ${method} ${route}.${diagnostic ? ` ${diagnostic}` : ""}`) as Error & { statusCode: number };
   error.statusCode = statusCode;
@@ -277,13 +301,15 @@ export class DockerEngineClient {
           return;
         }
         socket = upgradedSocket;
-        socket.on("data", () => undefined);
         socket.on("error", (error) => settle(error));
         socket.on("close", () => {
           if (!settled) settle(new Error("Docker Engine closed the workspace input stream early."));
         });
         if (head.byteLength) socket.unshift(head);
-        socket.end(archive, () => settle());
+        socket.end(archive, () => {
+          socket?.destroy();
+          settle();
+        });
       });
       request.on("error", (error) => settle(error));
       signal?.addEventListener("abort", onAbort, { once: true });
@@ -292,46 +318,62 @@ export class DockerEngineClient {
   }
 }
 
+type DockerExecResult = { exitCode: number; output: Buffer };
+
+async function runDockerExec(
+  client: DockerEngineClient,
+  containerId: string,
+  command: string[],
+  signal: AbortSignal,
+  maxResponseBytes: number,
+  timeoutMs: number,
+): Promise<DockerExecResult> {
+  const create = await client.request(
+    `/${DOCKER_API_VERSION}/containers/${containerId}/exec`,
+    "POST",
+    Buffer.from(JSON.stringify({
+      AttachStdin: false,
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: false,
+      Cmd: command,
+      User: "65532:65532",
+      WorkingDir: WORKSPACE_PATH,
+      Privileged: false,
+    })),
+    signal,
+    1_000_000,
+  );
+  const execId = parseJson<{ Id?: string }>(create).Id;
+  if (!execId || !/^[a-f0-9]{12,64}$/i.test(execId)) throw new Error("Docker Engine did not return a valid sandbox exec ID.");
+  const started = await client.request(
+    `/${DOCKER_API_VERSION}/exec/${execId}/start`,
+    "POST",
+    Buffer.from(JSON.stringify({ Detach: false, Tty: false })),
+    signal,
+    maxResponseBytes,
+    "application/json",
+    timeoutMs,
+  );
+  const inspected = parseJson<{ Running?: boolean; ExitCode?: number | null }>(await client.request(
+    `/${DOCKER_API_VERSION}/exec/${execId}/json`,
+    "GET",
+    undefined,
+    signal,
+    1_000_000,
+  ));
+  if (inspected.Running !== false || typeof inspected.ExitCode !== "number" || !Number.isInteger(inspected.ExitCode)) {
+    throw new Error("Docker Engine did not report a completed sandbox exec status.");
+  }
+  return { exitCode: inspected.ExitCode, output: started.body };
+}
+
 function parseJson<T>(response: DockerResponse): T {
   try {
     return JSON.parse(response.body.toString("utf8")) as T;
   } catch {
     throw new Error("Docker Engine returned an invalid JSON response.");
   }
-}
-
-function dockerStatusCode(error: unknown): number | undefined {
-  if (error instanceof Error && "statusCode" in error && typeof error.statusCode === "number") return error.statusCode;
-  return undefined;
-}
-
-async function waitForSandboxExitCode(client: DockerEngineClient, containerId: string, signal: AbortSignal): Promise<number> {
-  const markerSet = new Set([SANDBOX_RESULT_PATH]);
-  const markerPath = `/${DOCKER_API_VERSION}/containers/${containerId}/archive?path=%2Fworkspace%2F${encodeURIComponent(SANDBOX_RESULT_PATH)}`;
-  const inspectPath = `/${DOCKER_API_VERSION}/containers/${containerId}/json`;
-  let lastStateCheck = Number.NEGATIVE_INFINITY;
-  while (!signal.aborted) {
-    try {
-      const response = await client.request(markerPath, "GET", undefined, signal, 1024 * 1024, "application/json", 1_000);
-      const marker = parseWorkspaceTar(response.body, markerSet).find((entry) => entry.path === SANDBOX_RESULT_PATH && entry.kind === "file");
-      const rawExitCode = marker?.data?.toString("ascii").trim();
-      if (!rawExitCode || !/^(?:0|[1-9][0-9]{0,2})$/.test(rawExitCode)) {
-        throw new Error("Sandbox completion marker contains an invalid exit code.");
-      }
-      const exitCode = Number(rawExitCode);
-      if (exitCode > 255) throw new Error("Sandbox completion marker contains an invalid exit code.");
-      return exitCode;
-    } catch (error) {
-      if (dockerStatusCode(error) !== 404) throw error;
-      if (performance.now() - lastStateCheck >= 1_000) {
-        lastStateCheck = performance.now();
-        const inspect = parseJson<{ State?: { Running?: boolean } }>(await client.request(inspectPath, "GET", undefined, signal, 1_000_000));
-        if (inspect.State?.Running === false) throw new Error("Sandbox container exited before publishing its result.");
-      }
-      await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
-    }
-  }
-  throw new Error("Sandbox command was cancelled.");
 }
 
 export function assertDockerDaemonIdentity(info: DockerInfo, expectedDaemonId: string): void {
@@ -351,18 +393,16 @@ export function assertDockerDaemonIdentity(info: DockerInfo, expectedDaemonId: s
 export function buildDockerContainerSpec(
   image: string,
   request: SandboxCommandRequest,
-  outputBytes: number,
 ): DockerContainerSpec {
   if (!IMAGE_DIGEST.test(image)) throw new Error("Sandbox image must be referenced by an immutable sha256 digest.");
   const environment = Object.entries(request.environment);
   if (environment.some(([key, value]) => !SAFE_ENV_NAMES.has(key) || /[\r\n\0]/.test(value))) {
     throw new Error("Sandbox environment contains a non-allowlisted variable.");
   }
-  const logKibibytes = Math.max(1, Math.ceil(outputBytes / 1024));
   return {
     Image: image,
     Entrypoint: [...SANDBOX_ENTRYPOINT],
-    Cmd: request.command,
+    Cmd: [],
     Env: [
       "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
       "HOME=/tmp",
@@ -404,7 +444,7 @@ export function buildDockerContainerSpec(
         "/tmp": `rw,nosuid,nodev,noexec,size=${TEMP_TMPFS_BYTES},mode=0700,uid=65532,gid=65532`,
       },
       RestartPolicy: { Name: "no" },
-      LogConfig: { Type: "local", Config: { "max-size": `${logKibibytes}k`, "max-file": "1", compress: "false" } },
+      LogConfig: { Type: "none", Config: {} },
     },
   };
 }
@@ -435,15 +475,15 @@ export function assertCreatedContainerSecurity(inspect: {
     LogConfig?: { Type?: string; Config?: Record<string, string> };
   };
   Mounts?: Array<{ Type?: string; Destination?: string; RW?: boolean }>;
-}, outputBytes = 2_000_000, expectedCommand?: string[]): void {
+}): void {
   const host = inspect.HostConfig;
   if (inspect.Config?.User !== "65532:65532" || inspect.Config.Tty !== false ||
       inspect.Config.OpenStdin !== true || inspect.Config.StdinOnce !== true) {
     throw new Error("Sandbox container did not preserve the required non-root process and bounded input settings.");
   }
   if (JSON.stringify(inspect.Config.Entrypoint) !== JSON.stringify(SANDBOX_ENTRYPOINT) ||
-      (expectedCommand && JSON.stringify(inspect.Config.Cmd) !== JSON.stringify(expectedCommand))) {
-    throw new Error("Sandbox container did not preserve the trusted bootstrap and requested direct command.");
+      JSON.stringify(inspect.Config.Cmd ?? []) !== JSON.stringify([])) {
+    throw new Error("Sandbox container did not preserve the trusted bootstrap-only command.");
   }
   if (!host || host.Privileged !== false || host.ReadonlyRootfs !== true || host.NetworkMode !== "none" || host.IpcMode !== "none") {
     throw new Error("Sandbox container security mode does not match the approved isolated policy.");
@@ -470,10 +510,8 @@ export function assertCreatedContainerSecurity(inspect: {
       !host.Tmpfs["/tmp"]?.includes(`size=${TEMP_TMPFS_BYTES}`)) {
     throw new Error("Sandbox container is missing bounded workspace or temporary storage.");
   }
-  const expectedLogSize = `${Math.max(1, Math.ceil(outputBytes / 1024))}k`;
-  if (host.LogConfig?.Type !== "local" || host.LogConfig.Config?.["max-file"] !== "1" ||
-      host.LogConfig.Config["max-size"] !== expectedLogSize || host.LogConfig.Config.compress !== "false") {
-    throw new Error("Sandbox container output logging is not bounded.");
+  if (host.LogConfig?.Type !== "none" || Object.keys(host.LogConfig.Config ?? {}).length !== 0) {
+    throw new Error("Sandbox container output retention is not disabled.");
   }
   // Docker reports tmpfs Mounts only after a created container starts. This
   // validation runs before start, so HostConfig.Tmpfs above is authoritative
@@ -511,16 +549,22 @@ export function demultiplexDockerLogs(buffer: Buffer, maxBytes: number): { stdou
   const stderr: Buffer[] = [];
   let outputSize = 0;
   let offset = 0;
-  while (offset + 8 <= buffer.byteLength && outputSize < maxBytes) {
+  while (offset < buffer.byteLength) {
+    if (offset + 8 > buffer.byteLength) throw new Error("Sandbox command output has a truncated Docker frame.");
     const streamType = buffer[offset]!;
+    if ((streamType !== 1 && streamType !== 2) || buffer[offset + 1] !== 0 || buffer[offset + 2] !== 0 || buffer[offset + 3] !== 0) {
+      throw new Error("Sandbox command output has an invalid Docker frame.");
+    }
     const frameSize = buffer.readUInt32BE(offset + 4);
     offset += 8;
-    if ((streamType !== 1 && streamType !== 2) || offset + frameSize > buffer.byteLength) break;
+    if (offset + frameSize > buffer.byteLength) throw new Error("Sandbox command output has a truncated Docker frame.");
     const remaining = maxBytes - outputSize;
     const partSize = Math.min(frameSize, remaining);
-    const part = Buffer.from(buffer.subarray(offset, offset + partSize));
-    (streamType === 1 ? stdout : stderr).push(part);
-    outputSize += partSize;
+    if (partSize > 0) {
+      const part = Buffer.from(buffer.subarray(offset, offset + partSize));
+      (streamType === 1 ? stdout : stderr).push(part);
+      outputSize += partSize;
+    }
     offset += frameSize;
   }
   const stdoutText = Buffer.concat(stdout).toString("utf8");
@@ -596,13 +640,13 @@ export class DockerSandboxBackend implements SandboxBackend {
     const workspace = await assertWorkspaceBelongsToJob(this.workspaceRoot, request.workspace, request.jobId);
     const workspaceTar = await createWorkspaceTar(workspace);
     const containerName = `atsh-sandbox-${request.jobId}-${randomUUID().slice(0, 8)}`;
-    const spec = buildDockerContainerSpec(this.image, request, request.maxOutputBytes);
+    const spec = buildDockerContainerSpec(this.image, request);
     const controller = new AbortController();
     const signals = request.signal ? [request.signal, controller.signal] : [controller.signal];
     const operationSignal = AbortSignal.any(signals);
     let timedOut = false;
     const startedAt = performance.now();
-    let integrationStage: "container-create" | "policy-inspection" | "container-start" | "workspace-input" | "command-completion" | "command-logs" | "workspace-output" | "workspace-apply" = "container-create";
+    let integrationStage: "container-create" | "policy-inspection" | "container-start" | "workspace-input" | "command-execution" | "workspace-output" | "workspace-apply" = "container-create";
     const timer = setTimeout(() => {
       timedOut = true;
       controller.abort();
@@ -625,37 +669,38 @@ export class DockerSandboxBackend implements SandboxBackend {
       integrationStage = "policy-inspection";
       const inspectResponse = await this.client.request(`/${DOCKER_API_VERSION}/containers/${containerId}/json`, "GET", undefined, operationSignal, 1_000_000);
       const inspect = parseJson<Parameters<typeof assertCreatedContainerSecurity>[0]>(inspectResponse);
-      assertCreatedContainerSecurity(inspect, request.maxOutputBytes, request.command);
+      assertCreatedContainerSecurity(inspect);
 
       integrationStage = "container-start";
       await this.client.request(`/${DOCKER_API_VERSION}/containers/${containerId}/start`, "POST", undefined, operationSignal, 1_000_000);
       integrationStage = "workspace-input";
       await this.client.sendWorkspaceArchive(containerId, workspaceTar, operationSignal);
-      integrationStage = "command-completion";
-      const exitCode = await waitForSandboxExitCode(this.client, containerId, operationSignal);
-      await this.client.request(`/${DOCKER_API_VERSION}/containers/${containerId}/pause`, "POST", undefined, operationSignal, 1_000_000);
-
-      integrationStage = "command-logs";
-      const logResponse = await this.client.request(
-        `/${DOCKER_API_VERSION}/containers/${containerId}/logs?stdout=1&stderr=1`,
-        "GET",
-        undefined,
+      integrationStage = "command-execution";
+      const commandExec = await runDockerExec(
+        this.client,
+        containerId,
+        request.command,
         operationSignal,
-        request.maxOutputBytes + 64 * 1024,
+        Math.max(1024 * 1024, request.maxOutputBytes + 64 * 1024),
+        request.timeoutMs + REQUEST_TIMEOUT_MS,
       );
-      const logs = demultiplexDockerLogs(logResponse.body, request.maxOutputBytes);
-
+      const logs = demultiplexDockerLogs(commandExec.output, request.maxOutputBytes);
       integrationStage = "workspace-output";
-      const archiveResponse = await this.client.request(
-        `/${DOCKER_API_VERSION}/containers/${containerId}/archive?path=%2Fworkspace`,
-        "GET",
-        undefined,
+      const archiveExec = await runDockerExec(
+        this.client,
+        containerId,
+        ["tar", "--format=ustar", "-C", WORKSPACE_PATH, "-cf", "-", "."],
         operationSignal,
+        MAX_WORKSPACE_ARCHIVE_BYTES + 64 * 1024,
+        request.timeoutMs + REQUEST_TIMEOUT_MS,
       );
+      if (archiveExec.exitCode !== 0) throw new Error("Trusted sandbox workspace export failed.");
+      const outputArchive = extractDockerStdout(archiveExec.output);
+      await this.client.request(`/${DOCKER_API_VERSION}/containers/${containerId}/pause`, "POST", undefined, operationSignal, 1_000_000);
       integrationStage = "workspace-apply";
-      await applyWorkspaceTar(workspace, archiveResponse.body, new Set([SANDBOX_RESULT_PATH]));
+      await applyWorkspaceTar(workspace, outputArchive, new Set([SANDBOX_RESULT_PATH]));
       return {
-        exitCode,
+        exitCode: commandExec.exitCode,
         stdout: logs.stdout,
         stderr: logs.stderr,
         durationMs: Math.max(0, Math.round(performance.now() - startedAt)),

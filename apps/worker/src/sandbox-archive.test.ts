@@ -10,6 +10,7 @@ test("only exposes fixed workspace archive errors as integration diagnostics", (
   assert.equal(safeSandboxArchiveDiagnostic(new Error("Sandbox archive absolute path is outside the assigned workspace.")), "Sandbox archive absolute path is outside the assigned workspace.");
   assert.equal(safeSandboxArchiveDiagnostic(new Error("Sandbox archive contains a repeated separator after its root.")), "Sandbox archive contains a repeated separator after its root.");
   assert.equal(safeSandboxArchiveDiagnostic(new Error("EACCES: permission denied, open /private/path")), undefined);
+  assert.throws(() => parseWorkspaceTar(Buffer.alloc(0)), /truncated/);
 });
 
 test("workspace tar transfer preserves regular files and excludes secrets and repository metadata", async () => {
@@ -50,6 +51,12 @@ test("normalizes only the assigned absolute Docker archive root", async () => {
 
     setHeaderPath("/workspace/result.txt");
     assert.deepEqual(parseWorkspaceTar(archive).map((entry) => entry.path), ["result.txt"]);
+
+    setHeaderPath("./result.txt");
+    assert.deepEqual(parseWorkspaceTar(archive).map((entry) => entry.path), ["result.txt"]);
+
+    setHeaderPath("./../outside.txt");
+    assert.throws(() => parseWorkspaceTar(archive), /unsafe path/);
 
     const rootEntry = Buffer.from(archive.subarray(0, 512));
     rootEntry.fill(0, 0, 100);

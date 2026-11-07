@@ -5,6 +5,7 @@ import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 const BLOCK = 512;
 export const MAX_WORKSPACE_BYTES = 64 * 1024 * 1024;
 export const MAX_WORKSPACE_ENTRIES = 10_000;
+export const MAX_WORKSPACE_ARCHIVE_BYTES = MAX_WORKSPACE_BYTES + MAX_WORKSPACE_ENTRIES * BLOCK * 2 + BLOCK * 2;
 const RESERVED_SEGMENTS = new Set([".git", "node_modules", ".atsh-sandbox-result", ".atsh-sandbox-result.tmp"]);
 const SAFE_ARCHIVE_FAILURES = new Set([
   "Sandbox archive contains an invalid relative path.",
@@ -192,6 +193,9 @@ function normalizeContainerArchivePath(name: string, allowedReservedPaths: Reado
   let normalized = name;
   if (!normalized) throw new Error("Sandbox archive contains an empty entry path.");
   if (normalized.includes("\\")) throw new Error("Sandbox archive contains a backslash in an entry path.");
+  // GNU tar emits ./-prefixed paths when archiving the workspace root.
+  if (normalized === "./") normalized = ".";
+  else if (normalized.startsWith("./")) normalized = normalized.slice(2);
   // Docker Engine versions may preserve the requested absolute container path
   // in the archive headers. Accept only the exact assigned tmpfs root; all
   // subsequent validation still runs on the stripped, workspace-relative path.
@@ -206,16 +210,26 @@ function normalizeContainerArchivePath(name: string, allowedReservedPaths: Reado
 }
 
 export function parseWorkspaceTar(archive: Buffer, allowedReservedPaths: ReadonlySet<string> = new Set()): WorkspaceArchiveEntry[] {
-  if (archive.byteLength > MAX_WORKSPACE_BYTES + MAX_WORKSPACE_ENTRIES * BLOCK + BLOCK * 2) {
+  if (archive.byteLength < BLOCK * 2) throw new Error("Sandbox archive is truncated.");
+  if (archive.byteLength > MAX_WORKSPACE_ARCHIVE_BYTES) {
     throw new Error("Sandbox output archive exceeds the 64 MB transfer limit.");
   }
   const entries: WorkspaceArchiveEntry[] = [];
   const seen = new Set<string>();
   let totalBytes = 0;
   let offset = 0;
+  let hasTerminator = false;
   while (offset + BLOCK <= archive.byteLength) {
     const header = archive.subarray(offset, offset + BLOCK);
-    if (header.every((byte) => byte === 0)) break;
+    if (header.every((byte) => byte === 0)) {
+      const remainder = archive.subarray(offset);
+      if (remainder.byteLength < BLOCK * 2 || remainder.some((byte) => byte !== 0)) {
+        throw new Error("Sandbox archive is truncated.");
+      }
+      hasTerminator = true;
+      offset = archive.byteLength;
+      break;
+    }
     verifyTarChecksum(header);
     const name = readTarString(header, 0, 100);
     const prefix = readTarString(header, 345, 155);
@@ -245,7 +259,7 @@ export function parseWorkspaceTar(archive: Buffer, allowedReservedPaths: Readonl
     offset += size + ((BLOCK - (size % BLOCK)) % BLOCK);
     if (entries.length > MAX_WORKSPACE_ENTRIES) throw new Error("Sandbox output has too many entries.");
   }
-  if (offset > archive.byteLength) throw new Error("Sandbox archive is truncated.");
+  if (!hasTerminator || offset > archive.byteLength) throw new Error("Sandbox archive is truncated.");
 
   const files = new Set(entries.filter((entry) => entry.kind === "file").map((entry) => entry.path));
   for (const path of files) {
