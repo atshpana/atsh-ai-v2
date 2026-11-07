@@ -8,6 +8,9 @@ export const MAX_WORKSPACE_ENTRIES = 10_000;
 const RESERVED_SEGMENTS = new Set([".git", "node_modules"]);
 const SAFE_ARCHIVE_FAILURES = new Set([
   "Sandbox archive contains an invalid relative path.",
+  "Sandbox archive contains an empty entry path.",
+  "Sandbox archive contains a backslash in an entry path.",
+  "Sandbox archive absolute path is outside the assigned workspace.",
   "Sandbox archive contains a reserved or unsafe path.",
   "Sandbox archive field is out of range.",
   "Workspace path exceeds the supported tar path length.",
@@ -185,11 +188,14 @@ function verifyTarChecksum(header: Buffer): void {
 
 function normalizeContainerArchivePath(name: string): string {
   let normalized = name;
+  if (!normalized) throw new Error("Sandbox archive contains an empty entry path.");
+  if (normalized.includes("\\")) throw new Error("Sandbox archive contains a backslash in an entry path.");
   // Docker Engine versions may preserve the requested absolute container path
   // in the archive headers. Accept only the exact assigned tmpfs root; all
   // subsequent validation still runs on the stripped, workspace-relative path.
   if (normalized.startsWith("/workspace/")) normalized = normalized.slice("/workspace/".length);
   else if (normalized === "/workspace" || normalized === "/workspace/") normalized = ".";
+  else if (normalized.startsWith("/")) throw new Error("Sandbox archive absolute path is outside the assigned workspace.");
   else if (normalized.startsWith("workspace/")) normalized = normalized.slice("workspace/".length);
   else if (normalized === "workspace" || normalized === "workspace/") normalized = ".";
   return assertRelativePath(normalized);

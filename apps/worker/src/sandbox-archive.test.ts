@@ -7,6 +7,7 @@ import { applyWorkspaceTar, createWorkspaceTar, parseWorkspaceTar, safeSandboxAr
 
 test("only exposes fixed workspace archive errors as integration diagnostics", () => {
   assert.equal(safeSandboxArchiveDiagnostic(new Error("Sandbox archive is truncated.")), "Sandbox archive is truncated.");
+  assert.equal(safeSandboxArchiveDiagnostic(new Error("Sandbox archive absolute path is outside the assigned workspace.")), "Sandbox archive absolute path is outside the assigned workspace.");
   assert.equal(safeSandboxArchiveDiagnostic(new Error("EACCES: permission denied, open /private/path")), undefined);
 });
 
@@ -50,7 +51,13 @@ test("normalizes only the assigned absolute Docker archive root", async () => {
     assert.deepEqual(parseWorkspaceTar(archive).map((entry) => entry.path), ["result.txt"]);
 
     setHeaderPath("/etc/passwd");
-    assert.throws(() => parseWorkspaceTar(archive), /invalid relative path/);
+    assert.throws(() => parseWorkspaceTar(archive), /absolute path is outside/);
+
+    setHeaderPath("folder\\result.txt");
+    assert.throws(() => parseWorkspaceTar(archive), /backslash in an entry path/);
+
+    setHeaderPath("");
+    assert.throws(() => parseWorkspaceTar(archive), /empty entry path/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
