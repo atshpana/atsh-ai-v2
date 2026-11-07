@@ -31,7 +31,7 @@ The owner confirms Coolify, GitHub repository/branches/permissions, existing ser
 ## Current technical boundary
 The worker can create new files in a per-job workspace. It does not yet have a proven isolated command/build/test runtime. Running generated/customer-controlled scripts with only `cwd=workspace`, an allowlist, timeout, or environment filtering is not OS isolation and is prohibited.
 
-PR #32 CI run `42335451638` failed at TypeScript typecheck with TS2532 in `sandbox-contract.ts`. The exact unsafe array access was guarded in commit `9a15f41e43edd4d6b30074d495d9eb66bb9b981b`. The new commit's CI result has not yet been observed; do not mark the contract accepted until checks rerun successfully. Even green contract tests do not prove a real sandbox backend.
+PR #32 CI run `42335451638` exposed TS2532 in `sandbox-contract.ts`. The unsafe array access was guarded in commit `9a15f41e43edd4d6b30074d495d9eb66bb9b981b`. Follow-up CI run `42336071140` passed TypeScript typecheck, build, and unit tests; CodeQL and Dependency Review also passed for this head. This validates the contract change only. It does not prove a concrete sandbox backend or safe execution of generated code.
 
 ## Mandatory environment gate
 Architecture v1.1 requires Phase 0 protection and a documented Phase 1 environment report before build or architectural implementation. The owner-confirmed preparation is retained; independent evidence still needs to cover backup/restore, sanitized staging, live Coolify services, Worker/n8n, actual DB metadata/ownership, GitHub protections/Actions, secret presence/scope without exposing values, network isolation, and approvals schema status. No production writes are part of this inspection.
