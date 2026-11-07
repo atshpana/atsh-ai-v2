@@ -100,10 +100,17 @@ jobs:
           echo $! > "$RUNNER_TEMP/atsh-sandbox-proxy.pid"
           sleep 1
       - name: Run worker sandbox integration acceptance
-        run: npm test --workspace @atsh/worker
+        run: |
+          set -o pipefail
+          npm test --workspace @atsh/worker 2>&1 | tee "$RUNNER_TEMP/atsh-sandbox-test.log"
       - name: Show isolated daemon logs on failure
         if: failure()
         run: |
+          test_logs=$(tail -n 80 "$RUNNER_TEMP/atsh-sandbox-test.log" 2>/dev/null | tr '\n' ' ' || true)
+          test_logs=${test_logs//%/%25}
+          test_logs=${test_logs//$'\r'/%0D}
+          test_logs=${test_logs//::/%3A%3A}
+          echo "::error title=Sandbox acceptance failure output::${test_logs: -2500}"
           daemon_logs=$(env -u DOCKER_HOST docker logs atsh-sandbox-dind 2>&1 | tail -n 100 | tr '\n' ' ' || true)
           daemon_logs=${daemon_logs//%/%25}
           daemon_logs=${daemon_logs//$'\r'/%0D}
