@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { appendToolOutput, parseCheckpoint, rememberFile, serializeCheckpoint } from "./checkpoint-state.js";
+import { appendToolOutput, parseCheckpoint, rememberFile, requiredFilePaths, serializeCheckpoint } from "./checkpoint-state.js";
 
 test("checkpoint preserves Responses API history and read files across serialization", () => {
   const state = parseCheckpoint("");
@@ -21,4 +21,17 @@ test("legacy text checkpoints migrate without discarding their content", () => {
   const resumed = parseCheckpoint("previous inspection note");
   assert.match(String(resumed.history[0]?.content), /previous inspection note/);
   assert.deepEqual(resumed.files, {});
+});
+
+test("extracts explicit required file paths for completion gating", () => {
+  const required = requiredFilePaths({
+    task: "Read README.md, apps/worker/src/agent-runner.ts and apps/api/prisma/migrations/20261106000000_agent_jobs/migration.sql",
+    acceptanceCriteria: ["Inspect package.json"]
+  });
+  assert.deepEqual(required.sort(), [
+    "README.md",
+    "apps/api/prisma/migrations/20261106000000_agent_jobs/migration.sql",
+    "apps/worker/src/agent-runner.ts",
+    "package.json"
+  ].sort());
 });
