@@ -66,8 +66,8 @@ test("refuses a backend without core-db network isolation before execution", asy
 test("rejects shell strings and unbounded command requests before execution", async () => {
   const safe = backend();
   await assert.rejects(
-    executeSandboxCommand(safe, { ...request, command: ["npm test"] }),
-    /argument array/,
+    executeSandboxCommand(safe, { ...request, command: ["sh", "-c", "npm test"] }),
+    /Shell interpreters/,
   );
   await assert.rejects(
     executeSandboxCommand(safe, { ...request, timeoutMs: 999_999_999 }),
