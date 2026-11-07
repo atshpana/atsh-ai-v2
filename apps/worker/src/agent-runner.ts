@@ -71,9 +71,23 @@ async function githubContents(path: string): Promise<string> {
   });
   if (!response.ok) throw new Error(`GitHub read failed with status ${response.status}.`);
   const payload = await response.json() as { type?: string; name?: string; path?: string; content?: string; encoding?: string; size?: number; download_url?: string | null } | Array<{ type?: string; name?: string; path?: string; size?: number }>;
-  if (Array.isArray(payload)) return JSON.stringify(payload.map(({ type, name, path: itemPath, size }) => ({ type, name, path: itemPath, size }))).slice(0, 12000);
-  if (payload.type !== "file" || payload.encoding !== "base64" || typeof payload.content !== "string") throw new Error("Requested path is not a readable text file.");
-    return Buffer.from(payload.content.replace(/\s/g, ""), "base64").toString("utf8").slice(0, 12000);
+  if (Array.isArray(payload)) {
+    const listing = JSON.stringify(payload.map(({ type, name, path: itemPath, size }) => ({ type, name, path: itemPath, size })));
+    if (Buffer.byteLength(listing, "utf8") > 100000) {
+      throw new Error("Directory listing exceeds the 100 KB safety limit. Read specific files instead.");
+    }
+    return listing;
+  }
+  if (payload.type !== "file" || payload.encoding !== "base64" || typeof payload.content !== "string") {
+    throw new Error("Requested path is not a readable text file.");
+  }
+  const decoded = Buffer.from(payload.content.replace(/\s/g, ""), "base64");
+  if (decoded.byteLength > 1000000 || (typeof payload.size === "number" && payload.size > 1000000)) {
+    throw new Error("File exceeds the 1 MB worker read limit. Large-file chunked reading is not implemented; refusing to return partial content.");
+  }
+  // Preserve the complete file. Never silently truncate repository content:
+  // the full value is also stored in checkpoint.files for multi-turn resume.
+  return decoded.toString("utf8");
 }
 
 const tools = [
