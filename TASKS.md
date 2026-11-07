@@ -21,8 +21,8 @@
 
 ## Active task
 - [ ] **ENG-03 — Real fail-closed build sandbox**
-  - PR #32 defines a sandbox contract/policy adapter only; it is not a concrete runtime.
-  - CI failure was traced to strict TypeScript error TS2532 at `sandbox-contract.ts` executable indexing. Guarded optional access committed as `9a15f41e43edd4d6b30074d495d9eb66bb9b981b`; CI run `42336071140` passed typecheck, build, and unit tests; CodeQL and Dependency Review also passed for this head.
+  - PR #32 was merged into implementation/bootstrap at `ebeabf4de468783d0cc7fc68b0738abc17d4054b` after CI run `42336071140` passed typecheck, build, and unit tests; CodeQL and Dependency Review also passed.
+  - The merged code defines a sandbox contract/policy adapter only; it is not a concrete runtime.
   - Identify and validate the actual supported isolation runtime for the Build Worker.
   - Implement a concrete backend with non-root execution, no host/core-db network or host sockets, read-only root filesystem, bounded workspace/tmp writes, CPU/memory/PID/time/output limits, cancellation, and explicit network policy.
   - Acceptance: integration tests prove a real job runs inside the isolated runtime, cannot reach host/core-db, respects resource limits, and is terminated on cancellation. Until then, generated code and package scripts must not execute.
