@@ -105,7 +105,10 @@ jobs:
           npm test --workspace @atsh/worker 2>&1 | tee "$RUNNER_TEMP/atsh-sandbox-test.log"
           test_status=${PIPESTATUS[0]}
           if [ "$test_status" -ne 0 ]; then
-            test_logs=$(tail -n 80 "$RUNNER_TEMP/atsh-sandbox-test.log" 2>/dev/null | tr '\n' ' ' || true)
+            test_logs=$(grep -n -A 40 -B 4 -E 'not ok [0-9]+|✖' "$RUNNER_TEMP/atsh-sandbox-test.log" 2>/dev/null | tr '\n' ' ' || true)
+            if [ -z "$test_logs" ]; then
+              test_logs=$(tail -n 80 "$RUNNER_TEMP/atsh-sandbox-test.log" 2>/dev/null | tr '\n' ' ' || true)
+            fi
             test_logs=${test_logs//%/%25}
             test_logs=${test_logs//$'\r'/%0D}
             test_logs=${test_logs//::/%3A%3A}
