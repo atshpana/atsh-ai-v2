@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { appendToolOutput, parseCheckpoint, rememberFile, requiredFilePaths, serializeCheckpoint, type AgentCheckpoint } from "./checkpoint-state.js";
 import { Pool, type PoolClient } from "pg";
 import { planTools, type CostClass, type ProjectBrief, type ProjectKind } from "./tool-orchestrator.js";
 
@@ -179,13 +180,13 @@ async function claimJob(): Promise<Job | null> {
           SET status = 'running', lease_owner = $2,
               lease_expires_at = NOW() + ($3::double precision * INTERVAL '1 millisecond'),
               heartbeat_at = NOW(), started_at = COALESCE(started_at, NOW()),
-              attempts = attempts + 1, updated_at = NOW()
+              updated_at = NOW()
         WHERE id = $1`,
       [job.id, workerId, leaseMs],
     );
-    await event(client, job.id, "job.claimed", { workerId, attempt: job.attempts + 1 });
+    await event(client, job.id, "job.claimed", { workerId, failureAttempts: job.attempts });
     await client.query("COMMIT");
-    return { ...job, attempts: job.attempts + 1 };
+    return job;
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -266,102 +267,75 @@ async function persistToolPlan(job: Job, brief: ProjectBrief, plan: ReturnType<t
   }
 }
 
+
 async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Promise<Decision> {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY is required; no model call was attempted.");
-  if (!model) throw new Error("OPENAI_MODEL must be explicitly configured; no model call was attempted.");
-  const availableTools = tools;
-  const body: Record<string, unknown> = {
-    model,
-    store: false,
-    max_output_tokens: maxOutputTokens,
-    instructions: [
-      "You are the ATSH AI autonomous engineering task manager.",
-      "Work only within the supplied task scope and acceptance criteria.",
-      "Be truthful: do not claim code changes, tests, deployments, or external actions unless tools actually performed them.",
-      "Use record_progress to checkpoint and continue. Use complete_job only when acceptance evidence is present.",
-      "Request human approval before production deployment, destructive changes, spending, or undocumented decisions.",
-      "This worker exposes read-only GitHub inspection only when configured. It cannot edit repositories, run tests, or deploy.",
-      "When the task contains a project brief or asks which tools/integrations are needed, call plan_project_tools first. Explain its plan and approval gates; never claim tools were provisioned or connected.",
-      "For repository inspection, call github_read_file with one exact repository-relative path per call. You may call it repeatedly for different files; never use absolute paths, empty paths, backslashes, or parent-directory segments (..). After each read, use the returned content and continue with the next required file until the requested inspection is complete.",
-    ].join(" "),
-    input: JSON.stringify({ task: job.input, previousCheckpoint: checkpoint }),
-    tools: availableTools,
-    tool_choice: "required",
-  };
+  if (!apiKey || !model) throw new Error("OpenAI API key and model are required.");
+  const state = parseCheckpoint(checkpoint);
+  if (state.history.length === 0) state.history.push({ role: "user", content: JSON.stringify({ task: job.input, acceptanceCriteria: (job.input as Record<string, unknown>).acceptanceCriteria ?? null }) });
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(90000)]) : AbortSignal.timeout(90000),
+    headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model, store: false, max_output_tokens: maxOutputTokens, input: state.history, tools, tool_choice: "required",
+      instructions: [
+        "You are the ATSH AI autonomous engineering task manager. Work only within the supplied scope.",
+        "Be truthful; do not claim actions without tool evidence. Use record_progress to checkpoint.",
+        "Request human approval before production deployment, destructive changes, spending, or undocumented decisions.",
+        "This worker provides read-only GitHub inspection only; it cannot edit repositories, run tests, or deploy.",
+        "Read every explicitly requested file. Call github_read_file for exact repository-relative paths. Previously read file contents are preserved; proceed to the next unread file and do not reread completed files.",
+        "Use complete_job only after all requested files and acceptance criteria are satisfied with evidence."
+      ].join(" ")
+    }),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(90000)]) : AbortSignal.timeout(90000)
   });
-  if (!response.ok) {
-    const detail = (await response.text()).replace(/(?:sk-[A-Za-z0-9_-]{12,}|Bearer\\s+\\S+)/g, "[REDACTED]").slice(0, 1200);
-    log("error", "openai.http_error", { jobId: job.id, status: response.status, detail });
-    throw new Error(`OpenAI Responses API returned HTTP ${response.status}.`);
-  }
-  const payload = await response.json() as {
-    id?: string;
-    output?: Array<{ type?: string; name?: string; arguments?: string; call_id?: string }>;
-    usage?: { input_tokens?: number; output_tokens?: number };
-  };
-  const call = payload.output?.find((item) => item.type === "function_call");
-  if (!call?.name || !call.arguments || !call.call_id) throw new Error("Model response did not contain a supported function call.");
-  const args = JSON.parse(call.arguments) as Record<string, unknown>;
-  const responseId = payload.id ?? null;
-  if (call.name === "plan_project_tools") {
-    const brief = args as unknown as ProjectBrief;
-    const kinds: ProjectKind[] = ["website", "web_app", "mobile_app", "ecommerce", "ai_assistant", "automation", "custom_software"];
-    if (!kinds.includes(brief.kind) || !Array.isArray(brief.requirements) || brief.requirements.some((item: unknown) => typeof item !== "string") || !brief.constraints || typeof brief.constraints !== "object" || Array.isArray(brief.constraints)) {
-      throw new Error("Invalid project brief supplied to tool planner.");
-    }
-    const rawConstraints = brief.constraints as unknown as Record<string, unknown>;
-    const constraints: ProjectBrief["constraints"] = {};
-    if (rawConstraints.maxMonthlySpendUsd !== null && rawConstraints.maxMonthlySpendUsd !== undefined) {
-      if (typeof rawConstraints.maxMonthlySpendUsd !== "number" || !Number.isFinite(rawConstraints.maxMonthlySpendUsd) || rawConstraints.maxMonthlySpendUsd < 0) {
-        throw new Error("Invalid maxMonthlySpendUsd in project brief.");
+  if (!response.ok) throw new Error("OpenAI Responses API returned HTTP " + response.status + ".");
+  const payload = await response.json() as { id?: string; output?: Array<Record<string, unknown> & { type?: string; name?: string; arguments?: string; call_id?: string }> };
+  const output = payload.output ?? [];
+  if (!output.length) throw new Error("Model response contained no output items.");
+  state.history.push(...output);
+  const calls = output.filter((item) => item.type === "function_call");
+  if (!calls.length) throw new Error("Model response did not contain a supported function call.");
+  let decision: Decision | null = null;
+  for (const call of calls) {
+    if (!call.name || typeof call.arguments !== "string" || !call.call_id) throw new Error("Malformed model function call.");
+    const args = JSON.parse(call.arguments) as Record<string, unknown>;
+    let result: unknown;
+    if (call.name === "github_read_file" && typeof args.path === "string") {
+      const path = args.path.trim().replace(/\\/g, "/").replace(/^\/+/, "");
+      if (!path || path.split("/").some((part) => !part || part === "." || part === "..")) throw new Error("Invalid repository path.");
+      if (Object.prototype.hasOwnProperty.call(state.files, path)) result = { path, cached: true, content: state.files[path] };
+      else {
+        const content = await githubContents(path);
+        rememberFile(state, path, content);
+        result = { path, cached: false, content };
       }
-      constraints.maxMonthlySpendUsd = rawConstraints.maxMonthlySpendUsd;
-    }
-    if (rawConstraints.approvedProviders !== null && rawConstraints.approvedProviders !== undefined) {
-      if (!Array.isArray(rawConstraints.approvedProviders) || rawConstraints.approvedProviders.some((item) => typeof item !== "string")) {
-        throw new Error("Invalid approvedProviders in project brief.");
+    } else if (call.name === "record_progress" && typeof args.note === "string") {
+      result = { recorded: true, note: args.note };
+    } else if (call.name === "complete_job" && args.result && typeof args.result === "object") {
+      const candidate = args.result as { summary?: unknown; evidence?: unknown };
+      if (typeof candidate.summary !== "string" || !Array.isArray(candidate.evidence) || candidate.evidence.length === 0 || candidate.evidence.some((v) => typeof v !== "string" || !v.trim())) throw new Error("Completion requires a summary and non-empty evidence.");
+      const required = requiredFilePaths(job.input);
+      const missing = required.filter((path) => !Object.prototype.hasOwnProperty.call(state.files, path));
+      if (missing.length > 0) {
+        result = { accepted: false, missingRequiredFiles: missing, instruction: "Read every missing required file before attempting completion again." };
+      } else {
+        decision = { kind: "complete", result: candidate as { summary: string; evidence: string[] }, responseId: payload.id ?? null };
+        result = { accepted: true, inspectedFiles: Object.keys(state.files) };
       }
-      constraints.approvedProviders = rawConstraints.approvedProviders as string[];
-    }
-    if (rawConstraints.allowedCostClasses !== null && rawConstraints.allowedCostClasses !== undefined) {
-      const allowed = ["free", "existing_subscription", "usage_based", "new_subscription", "contract"];
-      if (!Array.isArray(rawConstraints.allowedCostClasses) || rawConstraints.allowedCostClasses.some((item) => typeof item !== "string" || !allowed.includes(item))) {
-        throw new Error("Invalid allowedCostClasses in project brief.");
-      }
-      constraints.allowedCostClasses = rawConstraints.allowedCostClasses as CostClass[];
-    }
-    if (rawConstraints.dataSensitivity !== null && rawConstraints.dataSensitivity !== undefined) {
-      const sensitivity = ["public", "internal", "confidential", "regulated"];
-      if (typeof rawConstraints.dataSensitivity !== "string" || !sensitivity.includes(rawConstraints.dataSensitivity)) {
-        throw new Error("Invalid dataSensitivity in project brief.");
-      }
-      constraints.dataSensitivity = rawConstraints.dataSensitivity as "public" | "internal" | "confidential" | "regulated";
-    }
-    const plan = planTools({ kind: brief.kind, requirements: brief.requirements, constraints });
-    return { kind: "continue", note: "Project tool plan (planning only):\n" + JSON.stringify(plan), responseId };
+    } else if (call.name === "request_human_approval" && typeof args.reason === "string") {
+      decision = { kind: "approval", reason: args.reason, responseId: payload.id ?? null };
+      result = { approvalRequested: true };
+    } else if (call.name === "plan_project_tools") {
+      const brief = args as unknown as ProjectBrief;
+      const plan = planTools(brief);
+      const saved = await persistToolPlan(job, brief, plan);
+      result = { plan, persistedPlan: saved };
+    } else throw new Error("Unsupported or invalid model tool call: " + call.name);
+    appendToolOutput(state, call.call_id, result);
   }
-  if (call.name === "github_read_file" && typeof args.path === "string") {
-    const content = await githubContents(args.path);
-    return { kind: "continue", note: `GitHub read result for ${args.path}:
-${content}`, responseId };
-  }
-  if (call.name === "record_progress" && typeof args.note === "string") {
-    return { kind: "continue", note: args.note, responseId };
-  }
-  if (call.name === "complete_job" && args.result && typeof args.result === "object") {
-    if (typeof (args.result as { summary?: unknown }).summary !== "string" || !Array.isArray((args.result as { evidence?: unknown }).evidence) || (args.result as { evidence: unknown[] }).evidence.length === 0) throw new Error("Completion requires a summary and non-empty evidence list.");
-    return { kind: "complete", result: args.result as { summary: string; evidence: string[] }, responseId };
-  }
-  if (call.name === "request_human_approval" && typeof args.reason === "string") {
-    return { kind: "approval", reason: args.reason, responseId };
-  }
-  throw new Error(`Unsupported or invalid model tool call: ${call.name}`);
+  if (decision) return decision;
+  return { kind: "continue", note: serializeCheckpoint(state), responseId: payload.id ?? null };
 }
 
 async function saveCheckpoint(jobId: string, responseId: string | null, note: string) {
@@ -411,12 +385,12 @@ async function finish(jobId: string, status: "succeeded" | "waiting_approval", d
 }
 
 async function requeue(job: Job, reason: string) {
-  const terminal = job.attempts >= job.max_attempts;
+  const terminal = job.attempts + 1 >= job.max_attempts;
   // Update and append the event atomically. A worker whose lease was stolen
   // must not emit a retry event or overwrite the new owner's state.
   const result = await pool.query(
     `WITH changed AS (
-       UPDATE agent_jobs SET status = $3::varchar, last_error = $4::text,
+       UPDATE agent_jobs SET status = $3::varchar, attempts = attempts + 1, last_error = $4::text,
          available_at = NOW() + (LEAST(300, POWER(2, attempts)) * INTERVAL '1 second'),
          lease_owner = NULL, lease_expires_at = NULL, updated_at = NOW(),
          completed_at = CASE WHEN $3::varchar = 'failed' THEN NOW() ELSE NULL END
@@ -436,7 +410,7 @@ async function requeue(job: Job, reason: string) {
 }
 
 async function processJob(job: Job) {
-  log("info", "job.started", { jobId: job.id, attempt: job.attempts, maxAttempts: job.max_attempts });
+  log("info", "job.started", { jobId: job.id, failureAttempts: job.attempts, maxFailureAttempts: job.max_attempts });
   let checkpoint = "";
   const current = await pool.query<{ checkpoint: string | null }>(
     "SELECT checkpoint FROM agent_jobs WHERE id = $1",
@@ -485,7 +459,7 @@ async function processJob(job: Job) {
     }
     await saveCheckpoint(job.id, job.last_response_id, "Turn limit reached; safely yielding for the next worker claim.");
     await pool.query(
-      "UPDATE agent_jobs SET status=CASE WHEN attempts >= max_attempts THEN 'failed' ELSE 'queued' END, lease_owner=NULL, lease_expires_at=NULL, available_at=NOW(), completed_at=CASE WHEN attempts >= max_attempts THEN NOW() ELSE NULL END, updated_at=NOW() WHERE id=$1 AND lease_owner=$2 AND status='running'",
+      "UPDATE agent_jobs SET status='queued', lease_owner=NULL, lease_expires_at=NULL, available_at=NOW(), completed_at=NULL, updated_at=NOW() WHERE id=$1 AND lease_owner=$2 AND status='running'",
       [job.id, workerId],
     );
   } catch (error) {
