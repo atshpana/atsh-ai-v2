@@ -107,3 +107,8 @@ Added `docs/HAI-CODE-TEST-EVIDENCE-MAP.md` at commit `1d93867641a38e6f29e3ad5ebc
 - GATE-01 is narrowed to missing safety evidence only. Repository implementation and CI may proceed now; generated/customer code execution and production-impacting operations remain gated on concrete isolation, least privilege, backup/rollback and release acceptance.
 - The owner delegated tool/dependency selection, implementation, final merge and production-change authority, and spending from available prepaid/API balance until exhausted. No borrowing or commitments beyond available funds. Apply the safeguards in the handoff.
 - This handoff change does not itself implement the sandbox or launch a coding agent process. It records the immediate assignment for the connected coding-agent environment.
+
+## ENG-03 latest acceptance evidence — 2026-11-07
+- Head `e2426b05e669b4619ef26d9fde888b340a0ab84f` passed CI, CodeQL, and Dependency Review but reported an empty `Mounts` list. Inspection occurs after Docker create and before start; pre-start `HostConfig.Tmpfs` passed exact policy validation, while realized mounts were not listed yet.
+- Keep pre-start checks on exact `HostConfig.Tmpfs` paths and sizes; validate any non-empty returned mount list strictly. The follow-up patch verifies from inside the running integration container that `/workspace` and `/tmp` are tmpfs with the configured bounds. No policy limit is relaxed.
+- Local Node 24 focused suite: 17 passed, one real-Docker test skipped without a local daemon. The next real-runtime acceptance result is pending; ENG-03 and deployment-side GATE-01 remain open.

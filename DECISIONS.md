@@ -65,3 +65,7 @@
 - Owner-confirmed Coolify, GitHub, existing DB/backup and OpenAI key preparation are accepted; do not repeat broad setup audits or ask for secrets/screenshots. Validate only a concrete failure or missing safety evidence needed for the next operation.
 - Repository implementation and CI may proceed immediately. Generated/customer code execution requires a proven real sandbox; production-impacting changes require least-privilege, backup, tested rollback, health checks and audit evidence.
 - Detailed assignment and acceptance criteria: `docs/CODING-AGENT-HANDOFF.md`.
+
+## ENG-03 pre-start mount inspection — 2026-11-07
+- Head `e2426b05e669b4619ef26d9fde888b340a0ab84f` showed that `Mounts` is empty when Docker inspects the newly created container before start, although the exact `HostConfig.Tmpfs` settings pass validation.
+- Retain strict pre-start checks for exactly `/workspace` and `/tmp`, sizes, and read-only root. Permit an empty pre-start `Mounts` list because the tmpfs mounts have not been materialized; reject every non-empty mount list that differs from policy. Verify actual tmpfs type and size from inside the running acceptance container before marking ENG-03 complete.

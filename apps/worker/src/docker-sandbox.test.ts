@@ -153,6 +153,7 @@ test("summarizes inspected mount mismatches without exposing source paths", () =
 
 test("refuses an inspected container whose effective security settings differ from policy", () => {
   assert.doesNotThrow(() => assertCreatedContainerSecurity(safeInspect(), request.maxOutputBytes, request.command));
+  assert.doesNotThrow(() => assertCreatedContainerSecurity({ ...safeInspect(), Mounts: [] }, request.maxOutputBytes, request.command));
   assert.throws(() => assertCreatedContainerSecurity({
     ...safeInspect(),
     HostConfig: { ...safeInspect().HostConfig, NetworkMode: "bridge" },

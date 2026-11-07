@@ -75,3 +75,8 @@ Do not mark runtime, database integration, preview, or deployment complete from 
 - Owner-confirmed API key, Coolify, GitHub, and database/backup preparation are accepted; do not ask for the secret or repeated setup screenshots. Worker startup is not proof of an end-to-end model call.
 - The owner has delegated tool/dependency choice, implementation, final merge and production-change authority, with spending limited to available prepaid/API balance. Apply the handoff's safety, testing, rollback, audit and no-credit rules.
 - Do not mark tasks complete without implementation, passing tests, and recorded evidence. Keep this repository's scope on the factory engine, not the ATSH customer-facing platform.
+
+## ENG-03 latest acceptance evidence — 2026-11-07
+- Head `e2426b05e669b4619ef26d9fde888b340a0ab84f` passed CI, CodeQL, and Dependency Review but reported an empty `Mounts` list. Inspection occurs after Docker create and before start; pre-start `HostConfig.Tmpfs` passed exact policy validation, while realized mounts were not listed yet.
+- Keep pre-start checks on exact `HostConfig.Tmpfs` paths and sizes; validate any non-empty returned mount list strictly. The follow-up patch verifies from inside the running integration container that `/workspace` and `/tmp` are tmpfs with the configured bounds. No policy limit is relaxed.
+- Local Node 24 focused suite: 17 passed, one real-Docker test skipped without a local daemon. The next real-runtime acceptance result is pending; ENG-03 and deployment-side GATE-01 remain open.

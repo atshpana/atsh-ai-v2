@@ -373,15 +373,19 @@ export function assertCreatedContainerSecurity(inspect: {
   if (host.LogConfig?.Type !== "local" || host.LogConfig.Config?.["max-file"] !== "1" || host.LogConfig.Config["max-size"] !== expectedLogSize) {
     throw new Error("Sandbox container output logging is not bounded.");
   }
-  if (!Array.isArray(inspect.Mounts) || inspect.Mounts.length !== 2 ||
-      ![WORKSPACE_PATH, "/tmp"].every((destination) => inspect.Mounts?.some((mount) =>
-        mount.Type === "tmpfs" && mount.Destination === destination && mount.RW === true))) {
+  // Docker reports tmpfs Mounts only after a created container starts. This
+  // validation runs before start, so HostConfig.Tmpfs above is authoritative
+  // here; validate Mounts strictly if the daemon does return a materialized list.
+  if (Array.isArray(inspect.Mounts) && inspect.Mounts.length > 0 &&
+      (inspect.Mounts.length !== 2 ||
+       ![WORKSPACE_PATH, "/tmp"].every((destination) => inspect.Mounts?.some((mount) =>
+         mount.Type === "tmpfs" && mount.Destination === destination && mount.RW === true)))) {
     throw new SafeSandboxPolicyDiagnosticError(
       "Sandbox container contains missing or unapproved writable mounts.",
       summarizeMountPolicy(inspect.Mounts),
     );
   }
-  for (const mount of inspect.Mounts) {
+  for (const mount of inspect.Mounts ?? []) {
     if (mount.Type !== "tmpfs" || (mount.Destination !== WORKSPACE_PATH && mount.Destination !== "/tmp")) {
       throw new Error("Sandbox container contains an unapproved mount.");
     }

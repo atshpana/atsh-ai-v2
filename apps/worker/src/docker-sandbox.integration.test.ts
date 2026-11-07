@@ -36,6 +36,8 @@ test("real rootless Docker sandbox enforces isolation, limits, output bounds, an
       "if(!Object.keys(os.networkInterfaces()).every((name)=>name==='lo'))throw Error('network interface available');",
       "if(fs.existsSync('/var/run/docker.sock')||fs.existsSync('/run/docker.sock'))throw Error('host socket available');",
       "const mounts=fs.readFileSync('/proc/mounts','utf8').split('\\n');const root=mounts.find((line)=>line.split(' ')[1]==='/');if(!root||!root.split(' ')[3].split(',').includes('ro'))throw Error('root filesystem is writable');",
+      "const workspaceMount=mounts.find((line)=>line.split(' ')[1]==='/workspace');if(!workspaceMount||workspaceMount.split(' ')[2]!=='tmpfs'||!workspaceMount.split(' ')[3].split(',').includes('size=262144k'))throw Error('workspace tmpfs is missing or unbounded');",
+      "const tempMount=mounts.find((line)=>line.split(' ')[1]==='/tmp');if(!tempMount||tempMount.split(' ')[2]!=='tmpfs'||!tempMount.split(' ')[3].split(',').includes('size=65536k'))throw Error('temporary tmpfs is missing or unbounded');",
       "const mem=Number(fs.readFileSync('/sys/fs/cgroup/memory.max','utf8').trim());if(!Number.isFinite(mem)||mem<=0||mem>536870912)throw Error('memory limit missing');",
       "const pids=Number(fs.readFileSync('/sys/fs/cgroup/pids.max','utf8').trim());if(!Number.isFinite(pids)||pids<=0||pids>128)throw Error('pid limit missing');",
       "const [quota,period]=fs.readFileSync('/sys/fs/cgroup/cpu.max','utf8').trim().split(' ').map(Number);if(!(quota>0&&period>0&&quota/period<=1))throw Error('cpu limit missing');",
