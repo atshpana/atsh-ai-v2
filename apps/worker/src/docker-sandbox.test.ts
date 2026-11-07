@@ -58,7 +58,7 @@ function safeInspect() {
       DeviceRequests: [],
       PortBindings: {},
       Tmpfs: { "/workspace": "rw,size=268435456", "/tmp": "rw,size=67108864" },
-      LogConfig: { Type: "local", Config: { "max-size": "10k", "max-file": "1" } },
+      LogConfig: { Type: "local", Config: { "max-size": "10k", "max-file": "1", compress: "false" } },
     },
     Mounts: [
       { Type: "tmpfs", Destination: "/workspace", RW: true },
@@ -105,6 +105,7 @@ test("constructs a non-root, networkless, read-only, resource-bounded container 
   assert.deepEqual(spec.HostConfig.DeviceRequests, []);
   assert.deepEqual(spec.HostConfig.Binds, []);
   assert.equal(spec.HostConfig.LogConfig.Config["max-size"], "10k");
+  assert.equal(spec.HostConfig.LogConfig.Config.compress, "false");
 });
 
 test("rejects mutable images and secret-like environment variables", () => {

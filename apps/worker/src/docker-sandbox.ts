@@ -368,7 +368,7 @@ export function buildDockerContainerSpec(
         "/tmp": `rw,nosuid,nodev,noexec,size=${TEMP_TMPFS_BYTES},mode=0700,uid=65532,gid=65532`,
       },
       RestartPolicy: { Name: "no" },
-      LogConfig: { Type: "local", Config: { "max-size": `${logKibibytes}k`, "max-file": "1" } },
+      LogConfig: { Type: "local", Config: { "max-size": `${logKibibytes}k`, "max-file": "1", compress: "false" } },
     },
   };
 }
@@ -435,7 +435,8 @@ export function assertCreatedContainerSecurity(inspect: {
     throw new Error("Sandbox container is missing bounded workspace or temporary storage.");
   }
   const expectedLogSize = `${Math.max(1, Math.ceil(outputBytes / 1024))}k`;
-  if (host.LogConfig?.Type !== "local" || host.LogConfig.Config?.["max-file"] !== "1" || host.LogConfig.Config["max-size"] !== expectedLogSize) {
+  if (host.LogConfig?.Type !== "local" || host.LogConfig.Config?.["max-file"] !== "1" ||
+      host.LogConfig.Config["max-size"] !== expectedLogSize || host.LogConfig.Config.compress !== "false") {
     throw new Error("Sandbox container output logging is not bounded.");
   }
   // Docker reports tmpfs Mounts only after a created container starts. This

@@ -85,3 +85,7 @@ Do not mark runtime, database integration, preview, or deployment complete from 
 - Head `2d5d12ce21ee47243ae12778e661d56edd1c1b24` passed CI, CodeQL, and Dependency Review, but real-runtime acceptance exposed that Docker's archive PUT endpoint rejects writes to any container whose rootfs is marked read-only (`container rootfs is marked read-only`).
 - Keep the rootfs read-only throughout. The next patch starts only a trusted bootstrap that reads the bounded workspace tar over the exact mTLS-proxied Docker attach stdin stream, extracts it into `/workspace` tmpfs, then `exec`s the requested argv after stdin EOF. `Dockerfile.sandbox` includes GNU tar; the proxy only permits this exact attach path for stream input.
 - Local Node 24 focused suite remains 17 passed with the real-Docker test skipped; syntax checks and `git diff --check` pass. The updated daemon acceptance is pending; do not activate the worker tool.
+
+## ENG-03 bounded log-driver compatibility — 2026-11-07
+- Head `53216985014e3ca20bcaf8c761a8ca43a09f8e97` passed CI, CodeQL, and Dependency Review; the real daemon accepted workspace staging but rejected container start because the local log driver defaults to compression while `max-file=1` is configured.
+- Docker's local logging driver documentation states compression is enabled by default and supports `compress=false`. The current patch explicitly disables compression while preserving one file and the exact per-request `max-size`. Local focused tests pass 17/17 (real Docker skipped without a local daemon); CI and real-runtime rerun pending.

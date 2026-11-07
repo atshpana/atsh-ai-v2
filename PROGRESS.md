@@ -117,3 +117,7 @@ Added `docs/HAI-CODE-TEST-EVIDENCE-MAP.md` at commit `1d93867641a38e6f29e3ad5ebc
 - Head `2d5d12ce21ee47243ae12778e661d56edd1c1b24` passed CI, CodeQL, and Dependency Review, but the real daemon rejected Docker archive PUT with `container rootfs is marked read-only`.
 - Keep rootfs read-only throughout. Workspace input now streams over a narrowly allowed Docker attach stdin tunnel to a trusted shell/tar bootstrap in the disposable container; only after EOF does it `exec` the requested argv. The proxy permits only this attach route and retains the mTLS gate. `Dockerfile.sandbox` adds GNU tar to the pinned Node image.
 - Local Node 24 focused suite: 17 passed; real Docker skipped because no local daemon. Syntax checks and `git diff --check` pass. Updated build/typecheck and real daemon acceptance remain pending.
+
+## ENG-03 bounded log-driver compatibility — 2026-11-07
+- Head `53216985014e3ca20bcaf8c761a8ca43a09f8e97` passed CI, CodeQL, and Dependency Review. The real daemon accepted workspace staging but failed container start because compression is enabled by default for the local log driver and conflicts with `max-file=1`.
+- Set `compress=false` explicitly while retaining one file and the configured max-size; policy inspection now requires this setting. The local logging driver reference documents compression as enabled by default and the `compress` option: https://docs.docker.com/engine/logging/drivers/local/. Local focused tests pass 17/17; next remote acceptance is pending.

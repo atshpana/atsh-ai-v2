@@ -73,3 +73,7 @@
 ## ENG-03 read-only workspace staging — 2026-11-07
 - Docker's archive PUT endpoint returned HTTP 400 when writing workspace data into a read-only-root container. Do not make root writable for staging.
 - Start the container with a pinned trusted bootstrap only, feed the validated workspace tar through the attach stdin stream, and close stdin once. The trusted bootstrap extracts under the bounded `/workspace` tmpfs and then `exec`s the requested command argv. Keep network disabled, root read-only, and credentials absent. The mTLS proxy tunnels only this exact attach route; reject all other upgrade requests.
+
+## ENG-03 bounded local log configuration — 2026-11-07
+- Head `53216985014e3ca20bcaf8c761a8ca43a09f8e97` reached container start but Docker rejected local log config because compression defaults to enabled with `max-file=1`.
+- Set `compress=false` explicitly and continue checking `max-file=1` plus the request-specific `max-size`. This preserves bounded output storage and avoids increasing the file count. Docker documents this option in its [local logging driver reference](https://docs.docker.com/engine/logging/drivers/local/).
