@@ -6,6 +6,7 @@ import {
   buildDockerContainerSpec,
   demultiplexDockerLogs,
   safeDockerDiagnostic,
+  safeSandboxPolicyDiagnostic,
 } from "./docker-sandbox.js";
 import type { SandboxCommandRequest } from "./sandbox-contract.js";
 
@@ -124,6 +125,12 @@ test("sanitizes Docker diagnostics before opt-in integration logging", () => {
   assert.equal(diagnostic.includes("a".repeat(64)), false);
   assert.equal(diagnostic.includes("123e4567-e89b-12d3-a456-426614174000"), false);
   assert.equal(diagnostic.length <= 160, true);
+});
+
+test("exposes only allowlisted sandbox policy failures in integration diagnostics", () => {
+  const policyFailure = new Error("Sandbox container security mode does not match the approved isolated policy.");
+  assert.equal(safeSandboxPolicyDiagnostic(policyFailure), policyFailure.message);
+  assert.equal(safeSandboxPolicyDiagnostic(new Error("unexpected token=private-value")), undefined);
 });
 
 test("refuses an inspected container whose effective security settings differ from policy", () => {

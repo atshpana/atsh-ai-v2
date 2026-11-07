@@ -17,6 +17,19 @@ const TEMP_TMPFS_BYTES = 64 * 1024 * 1024;
 const MAX_PIDS = 128;
 const CPU_NANO_CPUS = 1_000_000_000;
 const SAFE_ENV_NAMES = new Set(["CI", "LANG", "NODE_ENV", "TZ"]);
+const SAFE_POLICY_FAILURES = new Set([
+  "Sandbox container did not preserve the required non-root process settings.",
+  "Sandbox container did not preserve the requested direct command.",
+  "Sandbox container security mode does not match the approved isolated policy.",
+  "Sandbox container resource limits do not match the approved bounds.",
+  "Sandbox container did not preserve private process, UTS, and cgroup namespaces.",
+  "Sandbox container did not drop capabilities or disable privilege escalation.",
+  "Sandbox container requested a host path, device, or published port.",
+  "Sandbox container is missing bounded workspace or temporary storage.",
+  "Sandbox container output logging is not bounded.",
+  "Sandbox container contains missing or unapproved writable mounts.",
+  "Sandbox container contains an unapproved mount.",
+]);
 const IMAGE_DIGEST = /^(?:[A-Za-z0-9._:/-]+@)?sha256:[a-f0-9]{64}$/i;
 const DAEMON_ID = /^(?:[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}|[a-z0-9]{4}(?::[a-z0-9]{4}){11}|[a-f0-9]{64})$/i;
 
@@ -101,6 +114,11 @@ export function safeDockerDiagnostic(body: Buffer): string | undefined {
     .trim()
     .slice(0, 160);
   return message || undefined;
+}
+
+export function safeSandboxPolicyDiagnostic(error: unknown): string | undefined {
+  if (error instanceof Error && SAFE_POLICY_FAILURES.has(error.message)) return error.message;
+  return undefined;
 }
 
 function errorMessage(statusCode: number, method: string, path: string, body: Buffer): Error {
@@ -523,6 +541,8 @@ export class DockerSandboxBackend implements SandboxBackend {
     } catch (error) {
       if (timedOut) throw new Error(`Sandbox command timed out after ${request.timeoutMs} milliseconds.`);
       if (request.signal?.aborted) throw new Error("Sandbox command was cancelled.");
+      const policyDiagnostic = process.env.SANDBOX_INTEGRATION === "1" ? safeSandboxPolicyDiagnostic(error) : undefined;
+      if (policyDiagnostic) throw new Error(`Sandbox command failed. ${policyDiagnostic}`);
       if (error instanceof Error && /^Docker Engine request failed with HTTP \d{3} for (GET|POST|PUT|DELETE) \/v1\.45\//.test(error.message)) {
         throw new Error(`Sandbox command failed. ${error.message} Response details were suppressed.`);
       }
