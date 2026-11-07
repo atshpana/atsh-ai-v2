@@ -83,8 +83,9 @@ export type DockerSandboxConfig = {
   workspaceRoot: string;
 };
 
-function errorMessage(statusCode: number): Error {
-  return new Error(`Docker Engine request failed with HTTP ${statusCode}.`);
+function errorMessage(statusCode: number, method: string, path: string): Error {
+  const route = path.split("?", 1)[0]!.replace(/\/containers\/[a-f0-9-]{12,64}(?=\/|$)/gi, "/containers/:id");
+  return new Error(`Docker Engine request failed with HTTP ${statusCode} for ${method} ${route}.`);
 }
 
 export class DockerEngineClient {
@@ -150,7 +151,7 @@ export class DockerEngineClient {
             body: Buffer.concat(chunks),
           };
           const successful = result.statusCode >= 200 && result.statusCode < 300;
-          if (!successful) rejectPromise(errorMessage(result.statusCode));
+          if (!successful) rejectPromise(errorMessage(result.statusCode, method, path));
           else resolvePromise(result);
         });
       });
@@ -499,9 +500,12 @@ export class DockerSandboxBackend implements SandboxBackend {
         stderr: logs.stderr,
         durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
       };
-    } catch {
+    } catch (error) {
       if (timedOut) throw new Error(`Sandbox command timed out after ${request.timeoutMs} milliseconds.`);
       if (request.signal?.aborted) throw new Error("Sandbox command was cancelled.");
+      if (error instanceof Error && /^Docker Engine request failed with HTTP \d{3} for (GET|POST|PUT|DELETE) \/v1\.45\//.test(error.message)) {
+        throw new Error(`Sandbox command failed. ${error.message} Response details were suppressed.`);
+      }
       throw new Error("Sandbox command failed. Docker Engine returned an error; sensitive details were suppressed.");
     } finally {
       clearTimeout(timer);
