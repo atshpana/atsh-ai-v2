@@ -88,6 +88,7 @@ test("constructs a non-root, networkless, read-only, resource-bounded container 
   assert.equal(spec.HostConfig.MemorySwap, 512 * 1024 * 1024);
   assert.equal(spec.HostConfig.PidsLimit, 128);
   assert.deepEqual(spec.HostConfig.CapDrop, ["ALL"]);
+  assert.deepEqual(spec.HostConfig.DeviceRequests, []);
   assert.deepEqual(spec.HostConfig.Binds, []);
   assert.equal(spec.HostConfig.LogConfig.Config["max-size"], "10k");
 });

@@ -56,6 +56,7 @@ export type DockerContainerSpec = {
     VolumesFrom: string[];
     Devices: unknown[];
     DeviceRequests: unknown[];
+    DeviceRequests: unknown[];
     PortBindings: Record<string, unknown>;
     Tmpfs: Record<string, string>;
     RestartPolicy: { Name: string };
@@ -235,6 +236,7 @@ export function buildDockerContainerSpec(
       Binds: [],
       VolumesFrom: [],
       Devices: [],
+      DeviceRequests: [],
       PortBindings: {},
       Tmpfs: {
         [WORKSPACE_PATH]: `rw,nosuid,nodev,size=${WORKSPACE_TMPFS_BYTES},mode=0700,uid=65532,gid=65532`,
@@ -471,7 +473,10 @@ export class DockerSandboxBackend implements SandboxBackend {
         request.timeoutMs + TIMEOUT_GRACE_MS,
       );
       const waitResult = parseJson<{ StatusCode?: number }>(wait);
-      if (!Number.isInteger(waitResult.StatusCode)) throw new Error("Docker Engine did not return a sandbox exit status.");
+      const exitCode = waitResult.StatusCode;
+      if (typeof exitCode !== "number" || !Number.isInteger(exitCode)) {
+        throw new Error("Docker Engine did not return a sandbox exit status.");
+      }
 
       const logResponse = await this.client.request(
         `/${DOCKER_API_VERSION}/containers/${containerId}/logs?stdout=1&stderr=1`,
@@ -490,7 +495,7 @@ export class DockerSandboxBackend implements SandboxBackend {
       );
       await applyWorkspaceTar(workspace, archiveResponse.body);
       return {
-        exitCode: waitResult.StatusCode,
+        exitCode,
         stdout: logs.stdout,
         stderr: logs.stderr,
         durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
