@@ -32,7 +32,7 @@
   - Owner confirms preparation is complete; independently verify only missing evidence.
   - Phase 0: backup integrity/restore evidence, sanitized staging readiness, and safe secret-scope verification without exposing values.
   - Phase 1: Coolify services, Worker/n8n, actual databases and metadata, GitHub branch/Actions controls, secret presence/scope, network isolation, backup evidence, and approvals schema if present.
-  - Produce a report that distinguishes verified, owner-confirmed, absent, and unknown; no production writes.
+  - Partial report committed at docs/PHASE-1-ENVIRONMENT-EVIDENCE.md. GitHub/repository evidence is recorded; Coolify/server/database/network/backup/secret runtime evidence remains inaccessible. Keep this task open until the missing safe evidence is supplied and reviewed; no production writes.
   - No build or architectural implementation before the report is reviewed and approved, as required by architecture v1.1.
 
 ## Following tasks — ordered around the HAI build
