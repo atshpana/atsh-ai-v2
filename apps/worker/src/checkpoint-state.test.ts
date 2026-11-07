@@ -65,7 +65,7 @@ test("turn-limit checkpoint round-trip retains task history and all previously r
   ensureTaskContext(state, taskInput);
   rememberFile(state, "README.md", "readme");
   rememberFile(state, "package.json", "package");
-  state.history.push({ type: "function_call_output", call_id: "read-1", output: "{\\"path\\":\\"README.md\\"}" });
+  state.history.push({ type: "function_call_output", call_id: "read-1", output: "{\"path\":\"README.md\"}" });
 
   const yielded = serializeCheckpoint(state);
   const resumed = parseCheckpoint(yielded, taskInput);
