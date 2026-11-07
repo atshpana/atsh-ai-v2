@@ -1,0 +1,16 @@
+# Immutable HAI intake
+
+The worker exposes three model tools for the first automated HAI intake stage:
+
+- `hai_intake_specification` reads one repository-relative `.md`, `.mdx`, or `.txt` file from the worker's existing allowlisted GitHub repository and configured ref. The queued job must provide the exact approved path/version as `input.haiSource`; the tool is not exposed without that authorization. The worker resolves the configured ref to a commit first, then reads the source at that exact commit. Reusing a path and version with different bytes fails closed.
+- `hai_read_extracted_items` returns source-quoted items with stable item keys and one-based source line numbers. Each page is capped at 50 items and 64 KiB; each extracted item is capped at 8 KiB. Continue from the returned `nextOffset` until `hasMore` is false.
+- `hai_record_requirement_evidence` appends a code, test, or evidence reference to one extracted requirement. It records the resolved GitHub commit and leaves the link `unverified`; it never marks implementation or acceptance complete.
+
+The queued job must explicitly include the approved source, for example `{"haiSource":{"path":"docs/HAI-MASTER.md","sourceVersion":"1.0.0"}}`. Both values are matched exactly against the model tool call. A different path/version is rejected, and all HAI tools remain unavailable when this job input is absent.
+
+The intake stores the original UTF-8 bytes, SHA-256 digest, GitHub blob SHA, resolved commit, repository/ref/path/version, byte length, and extractor version in `agent-db`. A join record lets later jobs reuse the same immutable intake while keeping reads and evidence links scoped to jobs that explicitly requested it. The worker returns metadata and counts after intake, not the original source. A separate bounded-page call is required to expose extracted text to the model. The deterministic Markdown/text extractor classifies headings and list/requirement lines; it does not call a model or invent missing decisions. `TODO`, `TBD`, and question lines are stored as open questions. Unsupported document formats, invalid UTF-8, oversized files, oversized individual items, and credential-like values are rejected before database writes.
+
+The migration `apps/api/prisma/migrations/20261107000000_hai_immutable_intake/migration.sql` is additive and must be reviewed and applied manually to the dedicated `agent-db`. It must not be applied to `core-db`. Database triggers reject row updates/deletes and table truncation for source, extracted-item, and evidence records. The worker's retry-safe insert path is idempotent for the same source path/version/hash. A changed source requires a new source version; a parser change requires an explicit new source version and is recorded under a new extractor version.
+
+This stage establishes intake mechanics, not complete HAI acceptance. No master HAI source has been ingested yet. The extractor supports Markdown/plain text only; PDF/Word conversion, semantic completeness review, conflict detection, and independent verification of proposed code/test links remain follow-up work. Do not describe a stored or proposed item as approved, implemented, or tested without corresponding review evidence.
+

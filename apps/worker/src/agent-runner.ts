@@ -3,6 +3,9 @@ import { appendToolOutput, ensureTaskContext, parseCheckpoint, rememberFile, req
 import { Pool, type PoolClient } from "pg";
 import { planTools, type CostClass, type ProjectBrief, type ProjectKind } from "./tool-orchestrator.js";
 import { createJobWorkspace, writeWorkspaceFile } from "./workspace-executor.js";
+import { createDockerSandboxBackendFromEnv } from "./docker-sandbox.js";
+import { executeSandboxCommand } from "./sandbox-contract.js";
+import { ingestHaiSpecification, readHaiExtractedItems, recordHaiRequirementEvidence, type HaiIntakePool } from "./hai-intake.js";
 
 type Job = {
   id: string;
@@ -54,11 +57,13 @@ const pool = new Pool({
   connectionTimeoutMillis: 5000,
   idleTimeoutMillis: 30000,
 });
+// Keep the intake's fakeable SQL contract separate from pg's overloaded generic query types.
+const haiIntakePool = pool as unknown as HaiIntakePool;
 
 const githubRepository = process.env.ATSH_GITHUB_REPOSITORY ?? "";
 const githubToken = process.env.GITHUB_TOKEN;
 
-async function githubContents(path: string): Promise<string> {
+async function githubContents(path: string, ref = githubRef): Promise<string> {
   if (!githubToken) throw new Error("GITHUB_TOKEN is required for repository inspection.");
   if (githubRepository !== "atshpana/atsh-ai-v2") throw new Error("Repository is not in the worker allowlist.");
   const requestedPath = typeof path === "string" ? path.trim().replace(/\\/g, "/") : "";
@@ -66,7 +71,8 @@ async function githubContents(path: string): Promise<string> {
   if (!normalized || normalized.split("/").some((part) => !part || part === "." || part === "..")) {
     throw new Error("Invalid repository path. Use a non-empty repository-relative path such as README.md or apps/worker/src/agent-runner.ts.");
   }
-  const response = await fetch(`https://api.github.com/repos/${githubRepository}/contents/${normalized}?ref=${encodeURIComponent(githubRef)}`, {
+  const encodedPath = normalized.split("/").map(encodeURIComponent).join("/");
+  const response = await fetch(`https://api.github.com/repos/${githubRepository}/contents/${encodedPath}?ref=${encodeURIComponent(ref)}`, {
     headers: { Authorization: `Bearer ${githubToken}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
     signal: AbortSignal.timeout(20000),
   });
@@ -89,6 +95,49 @@ async function githubContents(path: string): Promise<string> {
   // Preserve the complete file. Never silently truncate repository content:
   // the full value is also stored in checkpoint.files for multi-turn resume.
   return decoded.toString("utf8");
+}
+
+async function githubHaiSource(path: string, ref: string): Promise<{ bytes: Buffer; blobSha: string }> {
+  if (!githubToken) throw new Error("GITHUB_TOKEN is required for HAI intake.");
+  if (githubRepository !== "atshpana/atsh-ai-v2") throw new Error("Repository is not in the worker allowlist.");
+  const normalized = path.trim();
+  if (!normalized || normalized.length > 512 || normalized.startsWith("/") || normalized.includes("\\") || /[?#\0-\x1f\x7f]/.test(normalized) ||
+      normalized.split("/").some((part) => !part || part === "." || part === "..") ||
+      !/\.(?:md|mdx|txt)$/i.test(normalized)) {
+    throw new Error("HAI intake accepts only a repository-relative Markdown or TXT source path.");
+  }
+  const encodedPath = normalized.split("/").map(encodeURIComponent).join("/");
+  const response = await fetch(`https://api.github.com/repos/${githubRepository}/contents/${encodedPath}?ref=${encodeURIComponent(ref)}`, {
+    headers: { Authorization: `Bearer ${githubToken}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!response.ok) throw new Error(`GitHub HAI source read failed with status ${response.status}.`);
+  const payload = await response.json() as { type?: string; encoding?: string; content?: string; size?: number; sha?: string };
+  if (payload.type !== "file" || payload.encoding !== "base64" || typeof payload.content !== "string" ||
+      !Number.isSafeInteger(payload.size) || (payload.size as number) < 1 || (payload.size as number) > 1_000_000 ||
+      typeof payload.sha !== "string" || !/^[0-9a-f]{40}$/i.test(payload.sha)) {
+    throw new Error("HAI source is not an eligible bounded text file.");
+  }
+  const encoded = payload.content.replace(/\s/g, "");
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) {
+    throw new Error("HAI source returned an invalid encoded representation.");
+  }
+  const bytes = Buffer.from(encoded, "base64");
+  if (bytes.length !== payload.size) throw new Error("HAI source size did not match its repository metadata.");
+  return { bytes, blobSha: payload.sha.toLowerCase() };
+}
+
+async function githubCommitSha(ref: string): Promise<string> {
+  if (!githubToken) throw new Error("GITHUB_TOKEN is required for repository revision lookup.");
+  if (githubRepository !== "atshpana/atsh-ai-v2") throw new Error("Repository is not in the worker allowlist.");
+  const response = await fetch(`https://api.github.com/repos/${githubRepository}/commits/${encodeURIComponent(ref)}`, {
+    headers: { Authorization: `Bearer ${githubToken}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!response.ok) throw new Error(`GitHub revision read failed with status ${response.status}.`);
+  const payload = await response.json() as { sha?: string };
+  if (typeof payload.sha !== "string" || !/^[0-9a-f]{40}$/i.test(payload.sha)) throw new Error("GitHub revision metadata is invalid.");
+  return payload.sha.toLowerCase();
 }
 
 const tools = [
@@ -132,8 +181,52 @@ const tools = [
   },
   {
     type: "function",
+    name: "hai_intake_specification",
+    description: "Preserve one approved Markdown or TXT HAI source from the allowlisted repository, hash its exact bytes, deterministically extract source-linked items, and store append-only records. The original source is never returned by this tool; source-version conflicts fail closed.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: { path: { type: "string" }, sourceVersion: { type: "string" } },
+      required: ["path", "sourceVersion"],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "hai_read_extracted_items",
+    description: "Read one byte-bounded page of source-quoted HAI items from an immutable intake record. Use offset 0, then continue with the returned nextOffset until hasMore is false.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: {
+        specificationId: { type: "string" },
+        offset: { type: "integer", minimum: 0, maximum: 100000 },
+        limit: { type: "integer", minimum: 1, maximum: 50 },
+      },
+      required: ["specificationId", "offset", "limit"],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "hai_record_requirement_evidence",
+    description: "Append an unverified trace proposal from one immutable HAI requirement to a repository file at the current configured GitHub ref. This does not mark the requirement as implemented or tested.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: {
+        requirementKey: { type: "string" },
+        targetType: { type: "string", enum: ["code", "test", "evidence"] },
+        artifactPath: { type: "string" },
+      },
+      required: ["requirementKey", "targetType", "artifactPath"],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
     name: "workspace_write_file",
-    description: "Create a new UTF-8 text file inside this job's isolated workspace. Paths are relative to the assigned workspace. Existing files cannot be overwritten; .env, .git, node_modules, traversal and absolute paths are forbidden. This tool does not run commands or deploy.",
+    description: "Create a new UTF-8 text file inside this job's assigned workspace. Paths are relative to the assigned workspace. Existing files cannot be overwritten; .env, .git, node_modules, traversal and absolute paths are forbidden. This tool does not run commands or deploy.",
     strict: true,
     parameters: {
       type: "object",
@@ -179,6 +272,23 @@ const tools = [
     },
   },
 ] as const;
+
+const sandboxCommandTool = {
+  type: "function",
+  name: "sandbox_run_command",
+  description: "Run one bounded argument-array command inside the verified, network-disabled, non-root build sandbox. Never pass secrets. Shell interpreter commands are rejected. Use only when this tool is present.",
+  strict: true,
+  parameters: {
+    type: "object",
+    properties: {
+      command: { type: "array", items: { type: "string", minLength: 1 }, minItems: 1, maxItems: 64 },
+      timeoutMs: { type: "integer", minimum: 1, maximum: 600000 },
+      maxOutputBytes: { type: "integer", minimum: 1, maximum: 2000000 },
+    },
+    required: ["command", "timeoutMs", "maxOutputBytes"],
+    additionalProperties: false,
+  },
+} as const;
 
 async function claimJob(): Promise<Job | null> {
   const client = await pool.connect();
@@ -300,16 +410,24 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
   if (!apiKey || !model) throw new Error("OpenAI API key and model are required.");
   const state = parseCheckpoint(checkpoint, job.input);
   ensureTaskContext(state, job.input);
+  const sandboxBackend = await createDockerSandboxBackendFromEnv();
+  if (sandboxBackend) await sandboxBackend.getCapabilities(signal);
+  const requestedHaiSource = job.input.haiSource;
+  const haiSourceIsConfigured = Boolean(githubToken && requestedHaiSource && typeof requestedHaiSource === "object" &&
+    !Array.isArray(requestedHaiSource) && typeof (requestedHaiSource as Record<string, unknown>).path === "string" &&
+    typeof (requestedHaiSource as Record<string, unknown>).sourceVersion === "string");
+  const taskTools = tools.filter((tool) => !tool.name.startsWith("hai_") || haiSourceIsConfigured);
+  const availableTools = sandboxBackend ? [...taskTools, sandboxCommandTool] : taskTools;
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model, store: false, max_output_tokens: maxOutputTokens, input: state.history, tools, tool_choice: "required",
+      model, store: false, max_output_tokens: maxOutputTokens, input: state.history, tools: availableTools, tool_choice: "required",
       instructions: [
         "You are the ATSH AI autonomous engineering task manager. Work only within the supplied scope.",
         "Be truthful; do not claim actions without tool evidence. Use record_progress to checkpoint.",
         "Request human approval before production deployment, destructive changes, spending, or undocumented decisions.",
-        "This worker can inspect the allowlisted GitHub repository and create files only inside the isolated per-job workspace. It cannot run shell commands, push code, merge pull requests, or deploy.",
+        "This worker can inspect the allowlisted GitHub repository, preserve approved Markdown/TXT HAI sources in immutable intake records when an exact haiSource path/version is supplied in the job, read bounded pages of source-linked extracted items, and append unverified requirement evidence links. Intake never returns the full source automatically; use the extracted-item reader when needed. Evidence links remain unverified until independently reviewed. The worker can create files only inside the assigned per-job workspace. Command execution is available only when sandbox_run_command is present, and then only inside the verified network-disabled sandbox. Shell interpreter commands, GitHub writes, merges, and deployment are unavailable.",
         "Read every explicitly requested file. Call github_read_file for exact repository-relative paths. Previously read file contents are preserved; proceed to the next unread file and do not reread completed files.",
         "Use complete_job only after all requested files and acceptance criteria are satisfied with evidence."
       ].join(" ")
@@ -337,11 +455,73 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
         rememberFile(state, path, content);
         result = { path, cached: false, content };
       }
+    } else if (call.name === "hai_intake_specification" && typeof args.path === "string" && typeof args.sourceVersion === "string") {
+      const sourcePath = args.path.trim();
+      const approvedSource = job.input.haiSource;
+      if (!approvedSource || typeof approvedSource !== "object" || Array.isArray(approvedSource) ||
+          (approvedSource as Record<string, unknown>).path !== sourcePath ||
+          (approvedSource as Record<string, unknown>).sourceVersion !== args.sourceVersion) {
+        throw new Error("HAI intake source path and version must exactly match the job's approved haiSource input.");
+      }
+      const sourceCommitSha = await githubCommitSha(githubRef);
+      const source = await githubHaiSource(sourcePath, sourceCommitSha);
+      result = await ingestHaiSpecification(haiIntakePool, {
+        jobId: job.id,
+        sourceRepository: githubRepository,
+        sourceRef: githubRef,
+        sourcePath,
+        sourceVersion: args.sourceVersion,
+        sourceBytes: source.bytes,
+        sourceCommitSha,
+        sourceBlobSha: source.blobSha,
+      });
+    } else if (call.name === "hai_read_extracted_items" && typeof args.specificationId === "string" &&
+        Number.isSafeInteger(args.offset) && Number.isSafeInteger(args.limit)) {
+      result = await readHaiExtractedItems(haiIntakePool, job.id, args.specificationId, args.offset as number, args.limit as number);
+    } else if (call.name === "hai_record_requirement_evidence" && typeof args.requirementKey === "string" &&
+        typeof args.targetType === "string" && typeof args.artifactPath === "string" &&
+        ["code", "test", "evidence"].includes(args.targetType)) {
+      const artifactPath = args.artifactPath.trim();
+      const pathParts = artifactPath.split("#");
+      const repositoryPath = pathParts[0] ?? "";
+      if (pathParts.length > 2 || repositoryPath.startsWith("/") || repositoryPath.includes("\\") || /^[A-Za-z]:/.test(repositoryPath) || /[?\0-\x1f\x7f]/.test(repositoryPath) ||
+          (pathParts[1] !== undefined && !/^L[1-9][0-9]*(?:-L[1-9][0-9]*)?$/.test(pathParts[1])) ||
+          !/\.(?:ts|tsx|js|jsx|json|sql|prisma|md|mdx|ya?ml|toml|sh|css|html)$/i.test(repositoryPath)) {
+        throw new Error("HAI evidence must reference an allowlisted repository text file and optional line range.");
+      }
+      const validatedPath = repositoryPath.trim();
+      if (!validatedPath || validatedPath.split("/").some((part) => !part || part === "." || part === "..")) throw new Error("Invalid HAI evidence path.");
+      const artifactCommitSha = await githubCommitSha(githubRef);
+      await githubContents(validatedPath, artifactCommitSha);
+      result = await recordHaiRequirementEvidence(haiIntakePool, {
+        jobId: job.id,
+        requirementKey: args.requirementKey,
+        targetType: args.targetType as "code" | "test" | "evidence",
+        artifactPath,
+        artifactCommitSha,
+        artifactVersion: githubRef,
+      });
     } else if (call.name === "workspace_write_file" && typeof args.path === "string" && typeof args.content === "string") {
       const workspaceRoot = process.env.AGENT_WORKSPACE_ROOT;
       if (!workspaceRoot) throw new Error("AGENT_WORKSPACE_ROOT is required before workspace writes are enabled.");
       const workspace = await createJobWorkspace({ root: workspaceRoot, jobId: job.id });
       result = await writeWorkspaceFile(workspace, args.path, args.content);
+    } else if (call.name === "sandbox_run_command" && Array.isArray(args.command) &&
+        args.command.every((part) => typeof part === "string") && Number.isSafeInteger(args.timeoutMs) &&
+        Number.isSafeInteger(args.maxOutputBytes)) {
+      if (!sandboxBackend) throw new Error("Sandbox execution is disabled because no verified backend is configured.");
+      const workspaceRoot = process.env.AGENT_WORKSPACE_ROOT;
+      if (!workspaceRoot) throw new Error("AGENT_WORKSPACE_ROOT is required before sandbox execution is enabled.");
+      const workspace = await createJobWorkspace({ root: workspaceRoot, jobId: job.id });
+      result = await executeSandboxCommand(sandboxBackend, {
+        jobId: job.id,
+        workspace,
+        command: args.command as string[],
+        environment: {},
+        timeoutMs: args.timeoutMs as number,
+        maxOutputBytes: args.maxOutputBytes as number,
+        ...(signal ? { signal } : {}),
+      });
     } else if (call.name === "record_progress" && typeof args.note === "string") {
       result = { recorded: true, note: args.note };
     } else if (call.name === "complete_job" && args.result && typeof args.result === "object") {
@@ -533,3 +713,4 @@ void main().catch((error: unknown) => {
   process.stderr.write(`${message}\n`);
   process.exitCode = 1;
 });
+

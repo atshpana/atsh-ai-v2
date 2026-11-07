@@ -26,6 +26,11 @@ Optional:
 - `AGENT_MAX_OUTPUT_TOKENS=1800`
 - `AGENT_DB_POOL_SIZE=4`
 - `AGENT_WORKER_ID`: omit to generate a unique worker identity.
+- `AGENT_WORKSPACE_ROOT=/var/lib/atsh-agent/jobs`
+
+## Sandbox activation gate
+
+The concrete Docker sandbox backend is disabled unless all of these are supplied as runtime configuration: `SANDBOX_DOCKER_HOST`, `SANDBOX_DOCKER_CA_FILE`, `SANDBOX_DOCKER_CERT_FILE`, `SANDBOX_DOCKER_KEY_FILE`, `SANDBOX_DOCKER_EXPECTED_DAEMON_ID`, and `SANDBOX_IMAGE` (an immutable sha256 image reference). The Docker API endpoint must belong to a dedicated rootless Linux sandbox daemon labeled `atsh.sandbox=true`, separate from the Coolify host daemon. Do not mount the host Docker socket into this worker. Do not enable command execution until the real-runtime test and environment/network boundary evidence are reviewed. Details: `REAL_SANDBOX.md`.
 
 GitHub inspection is optional and read-only in this version:
 - `GITHUB_TOKEN`: fine-grained token with read-only Contents permission for the allowlisted repository.
