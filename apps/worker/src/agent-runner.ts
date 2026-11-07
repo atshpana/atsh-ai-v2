@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { appendToolOutput, parseCheckpoint, rememberFile, requiredFilePaths, serializeCheckpoint, type AgentCheckpoint } from "./checkpoint-state.js";
+import { appendToolOutput, ensureTaskContext, parseCheckpoint, rememberFile, requiredFilePaths, serializeCheckpoint, type AgentCheckpoint } from "./checkpoint-state.js";
 import { Pool, type PoolClient } from "pg";
 import { planTools, type CostClass, type ProjectBrief, type ProjectKind } from "./tool-orchestrator.js";
 
@@ -13,8 +13,8 @@ type Job = {
 
 type Decision =
   | { kind: "continue"; note: string; responseId: string | null }
-  | { kind: "complete"; result: { summary: string; evidence: string[] }; responseId: string | null }
-  | { kind: "approval"; reason: string; responseId: string | null };
+  | { kind: "complete"; result: { summary: string; evidence: string[] }; responseId: string | null; checkpoint: string }
+  | { kind: "approval"; reason: string; responseId: string | null; checkpoint: string };
 
 function positiveInteger(name: string, fallback: number, maximum: number): number {
   const raw = process.env[name];
@@ -271,8 +271,8 @@ async function persistToolPlan(job: Job, brief: ProjectBrief, plan: ReturnType<t
 async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Promise<Decision> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey || !model) throw new Error("OpenAI API key and model are required.");
-  const state = parseCheckpoint(checkpoint);
-  if (state.history.length === 0) state.history.push({ role: "user", content: JSON.stringify({ task: job.input, acceptanceCriteria: (job.input as Record<string, unknown>).acceptanceCriteria ?? null }) });
+  const state = parseCheckpoint(checkpoint, job.input);
+  ensureTaskContext(state, job.input);
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
@@ -320,11 +320,11 @@ async function askModel(job: Job, checkpoint: string, signal?: AbortSignal): Pro
       if (missing.length > 0) {
         result = { accepted: false, missingRequiredFiles: missing, instruction: "Read every missing required file before attempting completion again." };
       } else {
-        decision = { kind: "complete", result: candidate as { summary: string; evidence: string[] }, responseId: payload.id ?? null };
+        decision = { kind: "complete", result: candidate as { summary: string; evidence: string[] }, responseId: payload.id ?? null, checkpoint: serializeCheckpoint(state) };
         result = { accepted: true, inspectedFiles: Object.keys(state.files) };
       }
     } else if (call.name === "request_human_approval" && typeof args.reason === "string") {
-      decision = { kind: "approval", reason: args.reason, responseId: payload.id ?? null };
+      decision = { kind: "approval", reason: args.reason, responseId: payload.id ?? null, checkpoint: serializeCheckpoint(state) };
       result = { approvalRequested: true };
     } else if (call.name === "plan_project_tools") {
       const brief = args as unknown as ProjectBrief;
@@ -454,10 +454,10 @@ async function processJob(job: Job) {
         await finish(job.id, "succeeded", decision.result, decision.responseId);
         return;
       }
-      await finish(job.id, "waiting_approval", decision.reason, decision.responseId);
+      await saveCheckpoint(job.id, decision.responseId, decision.checkpoint);\n      await finish(job.id, "waiting_approval", decision.reason, decision.responseId);
       return;
     }
-    await saveCheckpoint(job.id, job.last_response_id, "Turn limit reached; safely yielding for the next worker claim.");
+    await saveCheckpoint(job.id, job.last_response_id, checkpoint);
     await pool.query(
       "UPDATE agent_jobs SET status='queued', lease_owner=NULL, lease_expires_at=NULL, available_at=NOW(), completed_at=NULL, updated_at=NOW() WHERE id=$1 AND lease_owner=$2 AND status='running'",
       [job.id, workerId],
