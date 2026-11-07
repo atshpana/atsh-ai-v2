@@ -8,6 +8,7 @@ import { applyWorkspaceTar, createWorkspaceTar, parseWorkspaceTar, safeSandboxAr
 test("only exposes fixed workspace archive errors as integration diagnostics", () => {
   assert.equal(safeSandboxArchiveDiagnostic(new Error("Sandbox archive is truncated.")), "Sandbox archive is truncated.");
   assert.equal(safeSandboxArchiveDiagnostic(new Error("Sandbox archive absolute path is outside the assigned workspace.")), "Sandbox archive absolute path is outside the assigned workspace.");
+  assert.equal(safeSandboxArchiveDiagnostic(new Error("Sandbox archive contains a repeated separator after its root.")), "Sandbox archive contains a repeated separator after its root.");
   assert.equal(safeSandboxArchiveDiagnostic(new Error("EACCES: permission denied, open /private/path")), undefined);
 });
 
@@ -50,8 +51,24 @@ test("normalizes only the assigned absolute Docker archive root", async () => {
     setHeaderPath("/workspace/result.txt");
     assert.deepEqual(parseWorkspaceTar(archive).map((entry) => entry.path), ["result.txt"]);
 
+    const rootEntry = Buffer.from(archive.subarray(0, 512));
+    rootEntry.fill(0, 0, 100);
+    rootEntry.write("/workspace/", 0, 100, "utf8");
+    rootEntry[156] = 0x35;
+    rootEntry.fill(0, 124, 136);
+    rootEntry.fill(0x20, 148, 156);
+    let rootChecksum = 0;
+    for (let index = 0; index < 512; index += 1) rootChecksum += rootEntry[index]!;
+    rootEntry.write(rootChecksum.toString(8).padStart(6, "0"), 148, 6, "ascii");
+    rootEntry[154] = 0;
+    rootEntry[155] = 0x20;
+    assert.deepEqual(parseWorkspaceTar(Buffer.concat([rootEntry, Buffer.alloc(1024)])), []);
+
     setHeaderPath("/etc/passwd");
     assert.throws(() => parseWorkspaceTar(archive), /absolute path is outside/);
+
+    setHeaderPath("/workspace//result.txt");
+    assert.throws(() => parseWorkspaceTar(archive), /repeated separator after its root/);
 
     setHeaderPath("folder\\result.txt");
     assert.throws(() => parseWorkspaceTar(archive), /backslash in an entry path/);

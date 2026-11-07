@@ -11,6 +11,7 @@ const SAFE_ARCHIVE_FAILURES = new Set([
   "Sandbox archive contains an empty entry path.",
   "Sandbox archive contains a backslash in an entry path.",
   "Sandbox archive absolute path is outside the assigned workspace.",
+  "Sandbox archive contains a repeated separator after its root.",
   "Sandbox archive contains a reserved or unsafe path.",
   "Sandbox archive field is out of range.",
   "Workspace path exceeds the supported tar path length.",
@@ -193,11 +194,13 @@ function normalizeContainerArchivePath(name: string): string {
   // Docker Engine versions may preserve the requested absolute container path
   // in the archive headers. Accept only the exact assigned tmpfs root; all
   // subsequent validation still runs on the stripped, workspace-relative path.
-  if (normalized.startsWith("/workspace/")) normalized = normalized.slice("/workspace/".length);
-  else if (normalized === "/workspace" || normalized === "/workspace/") normalized = ".";
+  if (normalized === "/workspace" || normalized === "/workspace/") normalized = ".";
+  else if (normalized.startsWith("/workspace/")) normalized = normalized.slice("/workspace/".length);
   else if (normalized.startsWith("/")) throw new Error("Sandbox archive absolute path is outside the assigned workspace.");
-  else if (normalized.startsWith("workspace/")) normalized = normalized.slice("workspace/".length);
   else if (normalized === "workspace" || normalized === "workspace/") normalized = ".";
+  else if (normalized.startsWith("workspace/")) normalized = normalized.slice("workspace/".length);
+  if (!normalized) throw new Error("Sandbox archive contains an empty entry path.");
+  if (normalized.startsWith("/")) throw new Error("Sandbox archive contains a repeated separator after its root.");
   return assertRelativePath(normalized);
 }
 
