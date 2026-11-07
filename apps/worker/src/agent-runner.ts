@@ -388,11 +388,11 @@ async function finish(jobId: string, status: "succeeded" | "waiting_approval", d
   try {
     await client.query("BEGIN");
     const update = await client.query(
-      `UPDATE agent_jobs SET status = $3,
-         result = CASE WHEN $3 = 'succeeded' THEN $4::jsonb ELSE result END,
-         approval_reason = CASE WHEN $3 = 'waiting_approval' THEN $5 ELSE approval_reason END,
-         last_response_id = COALESCE($6, last_response_id),
-         completed_at = CASE WHEN $3 = 'succeeded' THEN NOW() ELSE NULL END,
+      `UPDATE agent_jobs SET status = $3::varchar,
+         result = CASE WHEN $3::varchar = 'succeeded' THEN $4::jsonb ELSE result END,
+         approval_reason = CASE WHEN $3::varchar = 'waiting_approval' THEN $5::text ELSE approval_reason END,
+         last_response_id = COALESCE($6::varchar, last_response_id),
+         completed_at = CASE WHEN $3::varchar = 'succeeded' THEN NOW() ELSE NULL END,
          lease_owner = NULL, lease_expires_at = NULL, updated_at = NOW()
        WHERE id = $1 AND lease_owner = $2 AND status = 'running'`,
       [jobId, workerId, status, JSON.stringify(data), status === "waiting_approval" ? String(data) : null, responseId],
